@@ -30,7 +30,7 @@ def gfg():
             cur.execute('''select orders.res_date_start, lower(replace(users.name,',',' ')), users.email, profiles.phone, users.address_num || ' ' || users.address_street || ' ' || users.address_apt || ' ' || users. address_zip as address,
                         '$' || cast(round( CAST(reservations.charge as numeric), 2) as varchar), '$' || cast(round( CAST(reservations.deposit as numeric), 2) as varchar), '$' || cast(round( CAST(reservations.tax as numeric), 2) as varchar),
                         '(' || items.id || ') ' || items.name, orders.res_date_end,
-                        reservations.is_extended, 'https://www.hubbub.shop/inventory/i/id=' || cast(items.id as varchar)
+                        reservations.is_extended, 'https://www.hubbub.shop/inventory/i/id=' || cast(items.id as varchar), users.payment
                         from orders
                         inner join reservations on orders.renter_id=reservations.renter_id and orders.item_id=reservations.item_id and orders.res_date_start = reservations.date_started and orders.res_date_end = reservations.date_ended
                         inner join items on items.id=orders.item_id
