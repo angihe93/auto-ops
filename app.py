@@ -28,7 +28,7 @@ def gfg():
             cur = conn.cursor()
             # cur.execute('SELECT * FROM orders;')
             cur.execute('''select orders.res_date_start, lower(replace(users.name,',',' ')), users.email, profiles.phone, users.address_num || ' ' || users.address_street || ' ' || users.address_apt || ' ' || users. address_zip as address,
-                        reservations.charge, reservations.deposit, reservations.tax,
+                        '$' || cast(round( CAST(reservations.charge as numeric), 2) as varchar), '$' || cast(round( CAST(reservations.deposit as numeric), 2) as varchar), '$' || cast(round( CAST(reservations.tax as numeric), 2) as varchar),
                         '(' || items.id || ') ' || items.name, orders.res_date_end,
                         reservations.is_extended
                         from orders
