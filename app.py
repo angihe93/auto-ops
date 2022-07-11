@@ -12,7 +12,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 app = Flask(__name__)
- 
+
 host = os.environ.get('DB_HOST')
 database = os.environ.get('DB_DB')
 user = os.environ.get('DB_USER')
@@ -143,7 +143,7 @@ def makecalevents():
         else:
             print("else")
             flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
+                'google-credentials.json', SCOPES)
             # creds = flow.run_local_server(port=0)
             creds = flow.run_local_server(port=8080)
         # Save the credentials for the next run
