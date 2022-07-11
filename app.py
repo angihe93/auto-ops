@@ -3,12 +3,8 @@ import os
 import psycopg2
 from flask import Flask, render_template, request
 import bcrypt
-# import datetime
-
-
 import datetime
 import os.path
-
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
