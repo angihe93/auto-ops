@@ -5,6 +5,7 @@
     <title></title>
   </head>
   <body>
+    <a href="{{ url_for('makecalevents') }}">Make Cal Events</a>
     <table>
       <tr>
         <th>id</th>
@@ -44,7 +45,7 @@
         <th>rental end</th>
         <th></th>
       </tr>
-      {% for row in rows %} <!-- this doesn't work -->
+      {% for row in rows %}
       <tr>
         <td> 0 </td> <!-- id -->
         <td>{{ row[0] }}</td> <!-- rental start -->
@@ -53,7 +54,7 @@
         <td>{{ row[3] }}</td> <!-- customer phone -->
         <td>{{ row[12] }}</td> <!-- payment -->
         <td>{{ row[4] }}</td> <!-- customer address -->
-        <td> </td> <!-- drop off time -->
+        <td><a href="{{ url_for('makecalevents') }}">{{ logi_li[loop.index0][6] }}</a></td> <!-- drop off time, nothing means it does not need an event, none means user has submitted availability but ops has not chosen a time-->
         <td> </td>
         <td> </td>
         <td> </td>
@@ -64,7 +65,7 @@
         <td> </td> <!-- total sub -->
         <td> </td> <!-- total due -->
         <td> </td> <!-- payment acct -->
-        <td> </td> <!-- pick up datetime -->
+        <td> {{ logi_li[loop.index0][9] }} </td> <!-- pick up datetime, 9th element in logi li item -->
         <td> </td>
         <td> </td>
         <td> </td>
