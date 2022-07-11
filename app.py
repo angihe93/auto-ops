@@ -159,8 +159,8 @@ def makecalevents():
                 # Enable incremental authorization. Recommended as a best practice.
                 include_granted_scopes='true')
         # Save the credentials for the next run
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+        # with open('token.json', 'w') as token:
+        #     token.write(creds.to_json())
 
     try:
         service = build('calendar', 'v3', credentials=creds)
