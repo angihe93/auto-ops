@@ -12,7 +12,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 app = Flask(__name__)
-
+ 
 host = os.environ.get('DB_HOST')
 database = os.environ.get('DB_DB')
 user = os.environ.get('DB_USER')
