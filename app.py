@@ -52,7 +52,8 @@ def gfg():
                         '$' || cast(round( CAST(reservations.charge as numeric), 2) as varchar), '$' || cast(round( CAST(reservations.deposit as numeric), 2) as varchar), '$' || cast(round( CAST(reservations.tax as numeric), 2) as varchar),
                         '(' || items.id || ') ' || items.name, cast(orders.res_date_end as varchar),
                         reservations.is_extended, 'https://www.hubbub.shop/inventory/i/id=' || cast(items.id as varchar), '@' || users.payment,
-                        orders.id, orders.renter_id, order_dropoffs.dt_sched, order_dropoffs.dt_completed, order_pickups.dt_sched, order_pickups.dt_completed
+                        orders.id, orders.renter_id, order_dropoffs.dt_sched, order_dropoffs.dt_completed, order_pickups.dt_sched, order_pickups.dt_completed,
+                        reservations.dt_created
                         from orders
                         inner join reservations on orders.renter_id=reservations.renter_id and orders.item_id=reservations.item_id and orders.res_date_start = reservations.date_started and orders.res_date_end = reservations.date_ended
                         inner join items on items.id=orders.item_id
@@ -60,7 +61,7 @@ def gfg():
                         inner join profiles on profiles.id=users.id
                         left join order_dropoffs on orders.id=order_dropoffs.order_id
                         left join order_pickups on orders.id=order_pickups.order_id
-                        order by orders.res_date_start, users.name''')
+                        order by orders.res_date_start, reservations.dt_created''')
             # orders = cur.fetchall()
             rows = cur.fetchall()
             # print('rows',rows[-5:])
