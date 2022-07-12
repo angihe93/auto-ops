@@ -1,7 +1,7 @@
 from __future__ import print_function
 import os
 import psycopg2
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect
 import bcrypt
 import datetime
 import os.path
@@ -158,7 +158,7 @@ def makecalevents():
                 access_type='offline',
                 # Enable incremental authorization. Recommended as a best practice.
                 include_granted_scopes='true')
-        return flask.redirect(authorization_url)
+        return redirect(authorization_url)
         # Save the credentials for the next run
         # with open('token.json', 'w') as token:
         #     token.write(creds.to_json())
