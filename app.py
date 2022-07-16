@@ -2,6 +2,7 @@ from __future__ import print_function
 import os
 import psycopg2
 from flask import Flask, render_template, request, redirect
+import flask
 import bcrypt
 import datetime
 import os.path
