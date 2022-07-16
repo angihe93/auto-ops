@@ -249,7 +249,7 @@ def oauth2callback():
     SCOPES = ['https://www.googleapis.com/auth/calendar']
 
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-      CLIENT_SECRETS_FILE, scopes=SCOPES, state=state)
+      'google-credentials.json', scopes=SCOPES, state=state)
     flow.redirect_uri = flask.url_for('oauth2callback', _external=True)
     # flow.redirect_uri = 'https://localhost:8080/oauth2callback'
 
