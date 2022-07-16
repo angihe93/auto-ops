@@ -14,6 +14,7 @@ import google.oauth2.credentials
 import google_auth_oauthlib.flow
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)
 
 host = os.environ.get('DB_HOST')
 database = os.environ.get('DB_DB')
@@ -122,6 +123,153 @@ def gfg():
             return render_template('index.html', rows=rows, logi_li=logi_li)
             # return render_template("index.html")
     return render_template("key.html")
+
+
+@app.route('/test')
+def test_api_request():
+    if 'credentials' not in flask.session:
+        return flask.redirect('authorize')
+
+    # Load credentials from the session.
+    credentials = google.oauth2.credentials.Credentials(
+      **flask.session['credentials'])
+    print('credentials loaded from session')
+
+    # try:
+    service = googleapiclient.discovery.build('calendar', 'v3', credentials=credentials)
+    print('service built')
+# drive = googleapiclient.discovery.build(
+#   API_SERVICE_NAME, API_VERSION, credentials=credentials)
+
+# files = drive.files().list().execute()
+    # Call the Calendar API
+    now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
+    print('Getting the upcoming 10 events')
+    events_result = service.events().list(calendarId='primary', timeMin=now,
+                                          maxResults=10, singleEvents=True,
+                                          orderBy='startTime').execute()
+    events = events_result.get('items', [])
+
+    if not events:
+        print('No upcoming events found.')
+        return
+
+    # Prints the start and name of the next 10 events
+    for event in events:
+        start = event['start'].get('dateTime', event['start'].get('date'))
+        print(start, event['summary'])
+
+    event = {
+      'summary': 'Google I/O 2021',
+      'location': '800 Howard St., San Francisco, CA 94103',
+      'description': 'A chance to hear more about Google\'s developer products.',
+      'start': {
+        'dateTime': '2022-07-13T09:00:00-07:00',
+        'timeZone': 'America/Los_Angeles',
+      },
+      'end': {
+        'dateTime': '2022-07-28T17:00:00-07:00',
+        'timeZone': 'America/Los_Angeles',
+      },
+      'recurrence': [
+        'RRULE:FREQ=DAILY;COUNT=2'
+      ],
+      'attendees': [
+        {'email': 'lpage@example.com'},
+        {'email': 'sbrin@example.com'},
+      ],
+      'reminders': {
+        'useDefault': False,
+        'overrides': [
+          {'method': 'email', 'minutes': 24 * 60},
+          {'method': 'popup', 'minutes': 10},
+        ],
+      },
+    }
+
+    event = service.events().insert(calendarId='ah3354@columbia.edu', body=event).execute()
+    print('Event created: %s' % (event.get('htmlLink')))
+
+    return event.get('htmlLink')
+
+    # except: # HttpError as error:
+    #     print('An error occurred: %s') # % error)
+    #     return "error"
+
+    def credentials_to_dict(credentials):
+        return {'token': credentials.token,
+                'refresh_token': credentials.refresh_token,
+                'token_uri': credentials.token_uri,
+                'client_id': credentials.client_id,
+                'client_secret': credentials.client_secret,
+                'scopes': credentials.scopes,
+                'id_token': credentials.id_token}
+    # Save credentials back to session in case access token was refreshed.
+    # ACTION ITEM: In a production app, you likely want to save these
+    #              credentials in a persistent database instead.
+    flask.session['credentials'] = credentials_to_dict(credentials)
+
+
+    # return flask.jsonify(**files)
+
+@app.route('/authorize')
+def authorize():
+    # Create flow instance to manage the OAuth 2.0 Authorization Grant Flow steps.
+    flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
+      CLIENT_SECRETS_FILE, scopes=SCOPES)
+
+    # The URI created here must exactly match one of the authorized redirect URIs
+    # for the OAuth 2.0 client, which you configured in the API Console. If this
+    # value doesn't match an authorized URI, you will get a 'redirect_uri_mismatch'
+    # error.
+    flow.redirect_uri = flask.url_for('oauth2callback', _external=True)
+    # flow.redirect_uri = 'https://localhost:8080/oauth2callback'
+
+    authorization_url, state = flow.authorization_url(
+      # Enable offline access so that you can refresh an access token without
+      # re-prompting the user for permission. Recommended for web server apps.
+      access_type='offline',
+      # Enable incremental authorization. Recommended as a best practice.
+      include_granted_scopes='true')
+
+    # Store the state so the callback can verify the auth server response.
+    flask.session['state'] = state
+
+    return flask.redirect(authorization_url)
+
+
+@app.route('/oauth2callback')
+def oauth2callback():
+    # Specify the state when creating the flow in the callback so that it can
+    # verified in the authorization server response.
+    state = flask.session['state']
+
+    flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
+      CLIENT_SECRETS_FILE, scopes=SCOPES, state=state)
+    flow.redirect_uri = flask.url_for('oauth2callback', _external=True)
+    # flow.redirect_uri = 'https://localhost:8080/oauth2callback'
+
+
+    # Use the authorization server's response to fetch the OAuth 2.0 tokens.
+    authorization_response = flask.request.url
+    flow.fetch_token(authorization_response=authorization_response)
+
+    def credentials_to_dict(credentials):
+        return {'token': credentials.token,
+                'refresh_token': credentials.refresh_token,
+                'token_uri': credentials.token_uri,
+                'client_id': credentials.client_id,
+                'client_secret': credentials.client_secret,
+                'scopes': credentials.scopes,
+                'id_token': credentials.id_token}
+    # Store credentials in the session.
+    # ACTION ITEM: In a production app, you likely want to save these
+    #              credentials in a persistent database instead.
+    credentials = flow.credentials
+    flask.session['credentials'] = credentials_to_dict(credentials)
+
+    return flask.redirect(flask.url_for('test_api_request')) # test_api_request
+
 
 
 @app.route('/makecalevents', methods =["GET", "POST"])
@@ -321,4 +469,4 @@ def test_api_request():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=8080, debug=True)
+    app.run(host="127.0.0.1", port=8080, debug=True, ssl_context='adhoc')
