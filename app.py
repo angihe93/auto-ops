@@ -237,6 +237,7 @@ def authorize():
 
     # Store the state so the callback can verify the auth server response.
     flask.session['state'] = state
+    print('in authorize: flask.session',flask.session)
 
     return flask.redirect(authorization_url)
 
@@ -245,7 +246,7 @@ def authorize():
 def oauth2callback():
     # Specify the state when creating the flow in the callback so that it can
     # verified in the authorization server response.
-    print('flask.session',flask.session)
+    print('in oauth2callback: flask.session',flask.session)
     state = flask.session['state']
     SCOPES = ['https://www.googleapis.com/auth/calendar']
 
