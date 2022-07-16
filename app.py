@@ -215,6 +215,7 @@ def test_api_request():
 
 @app.route('/authorize')
 def authorize():
+    SCOPES = ['https://www.googleapis.com/auth/calendar']
     # Create flow instance to manage the OAuth 2.0 Authorization Grant Flow steps.
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
       'google-credentials.json', scopes=SCOPES)
@@ -244,6 +245,7 @@ def oauth2callback():
     # Specify the state when creating the flow in the callback so that it can
     # verified in the authorization server response.
     state = flask.session['state']
+    SCOPES = ['https://www.googleapis.com/auth/calendar']
 
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
       CLIENT_SECRETS_FILE, scopes=SCOPES, state=state)
