@@ -57,6 +57,7 @@ def gfg():
                         order by orders.res_date_start, reservations.dt_created''')
 
             rows = cur.fetchall()
+            print('rows:',rows[-5:])
             # res date start, res date end, order id, renter id, order_dropoffs dt_sched, order_pickups dt_sched, 1 if dropoff needs event, 1 if pickup needs event
             event_li = []
             for i in rows:
@@ -103,6 +104,20 @@ def gfg():
                     # print('else')
                     logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','','','',''))
 
+            # check for extensions and prepend appropriate pickup dates to pickup datetime column
+            cur.execute("select * from extensions")
+            extensions=cur.fetchall()
+            ext_li=[] # holds the date that go in pickup datetime
+            for i in rows:
+                # if order number is in extensions, add extension values, else, add none
+                e = [e[4] for e in extensions if e[0]==i[13]]
+                if len(e)>0:
+                    # if multiple extensions on same item/order, multiple rows in extensions with same order id but res dates are changed
+                    # sort e by res_date_end, take the latest res_date_end
+                    e.sort()
+                    ext_li.append(e[-1])
+                else:
+                    ext_li.append(i[9])
 
             cur.close()
             conn.close()
@@ -110,7 +125,7 @@ def gfg():
             # list to store calendar info: dropoff/pickup type, renter name, rental start (for dropoff), rental end (for pickup), chosen time, items, total due/deposit return, task id from ops (id=order id), renter address, renter phone, renter payment
             # add it to session so makecalevents can access https://stackoverflow.com/questions/27611216/how-to-pass-a-variable-between-flask-pages
 
-            return render_template('index.html', rows=rows, logi_li=logi_li)
+            return render_template('index.html', rows=rows, logi_li=logi_li, ext_li=ext_li)
             # # return render_template("index.html")
     return render_template("key.html")
 
@@ -356,10 +371,16 @@ def makecalevents():
     service = googleapiclient.discovery.build('calendar', 'v3', credentials=credentials)
     print('service built')
 
+    # from db get items for the same user with the same set pickup/dropoff datetime
+    # join orders and logistics and reservations, get item names, links, prices
+    # or get items in same event from rows, event_li, logi_li from gfg
+
     ltype = request.args.get('ltype')
     print('ltype:',ltype)
     renter = request.args.get('renter')
     print('renter:',renter)
+    rid = request.args.get('rid')
+    print('renter id:',rid)
     date = request.args.get('date')
     time = request.args.get('time')
     ### check in db if there are other items being pickedup/dropped off for the same user at the same time
@@ -370,61 +391,216 @@ def makecalevents():
     address = request.args.get("address")
     phone = request.args.get("phone")
     payment = request.args.get("payment")
+    notes = request.args.get("notes")
+    email = request.args.get("email")
+
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    # items_in_dropoff_query = """
+    #     select order_dropoffs.order_id, order_dropoffs.renter_id, order_dropoffs.dt_sched,
+    #     order_dropoffs.dropoff_date, logistics.chosen_time, round( CAST(reservations.charge as numeric), 2),
+    #     round( CAST(reservations.deposit as numeric), 2), round( CAST(reservations.tax as numeric), 2),
+    #     reservations.item_id, items.name
+    #     from order_dropoffs
+    #     inner join logistics on logistics.dt_sched=order_dropoffs.dt_sched and logistics.renter_id=order_dropoffs.renter_id
+    #     inner join reservations on order_dropoffs.dropoff_date=reservations.date_started
+    #     inner join items on reservations.item_id=items.id
+    #     where reservations.is_calendared=TRUE and order_dropoffs.renter_id=%s and order_dropoffs.dropoff_date='%s' and logistics.chosen_time='%s'
+    # """%(rid,date,time)
+    if ltype=='dropoff':
+        items_in_dropoff_query = """
+            select distinct reservations.item_id, items.name,
+            round( CAST(reservations.charge as numeric), 2),
+            round( CAST(reservations.deposit as numeric), 2), round( CAST(reservations.tax as numeric), 2)
+            from order_dropoffs
+            inner join logistics on logistics.dt_sched=order_dropoffs.dt_sched and logistics.renter_id=order_dropoffs.renter_id
+            inner join reservations on order_dropoffs.dropoff_date=reservations.date_started and order_dropoffs.renter_id=reservations.renter_id
+            inner join items on reservations.item_id=items.id
+            where reservations.is_calendared=TRUE and order_dropoffs.renter_id=%s and order_dropoffs.dropoff_date='%s' and logistics.chosen_time='%s'
+        """%(rid,date,time)
+        cur.execute(items_in_dropoff_query)
+        rows = cur.fetchall()
+        print('items in dropoff rows:',rows[-10:])
+
+    elif ltype=='pickup':
+        ### need to handle extensions!! order_pickups show post extension dates, but reservations.date_ended might not and the date associated with pickup time is the unextended date
+        ### add extended dates in pickup date time columns?
+        p_date=request.args.get("p_date")
+        items_in_pickup_query = """
+            select distinct reservations.item_id, items.name,
+            round( CAST(reservations.charge as numeric), 2),
+            round( CAST(reservations.deposit as numeric), 2), round( CAST(reservations.tax as numeric), 2)
+            from order_pickups
+            inner join logistics on logistics.dt_sched=order_pickups.dt_sched and logistics.renter_id=order_pickups.renter_id
+            inner join reservations on order_pickups.pickup_date=reservations.date_ended and order_pickups.renter_id=reservations.renter_id
+            inner join items on reservations.item_id=items.id
+            where reservations.is_calendared=TRUE and order_pickups.renter_id=%s and order_pickups.pickup_date='%s' and logistics.chosen_time='%s'
+        """%(rid,p_date,time)
+        cur.execute(items_in_pickup_query)
+        rows = cur.fetchall()
+        print('items in pickup rows:',rows[-10:])
+
+    cur.close()
+    conn.close()
+
+    ## user notes
+    ## user email (to put in body or as attendee)
     print('date:',date)
     print('time:',time)
-    print('iname',iname)
-    print('ilink:',ilink)
+    # print('iname',iname)
+    # print('ilink:',ilink)
+    # put all items in same pickup/dropoff in a list
+    # if len(rows)==1:
+    iid_li=[i[0] for i in rows]
+    iname_li=[i[1] for i in rows]
+    ilink_li=['https://www.hubbub.shop/inventory/i/id='+str(i[0]) for i in rows]
+
+    ### accurate for dropoffs only, if no extension is made before dropoff:
+    charge_li=[i[2] for i in rows]  # extension charges not included
+    deposit_li=[i[3] for i in rows] # extension deposits not included
+    tax_li=[i[4] for i in rows] # extension taxes not included
+    total = sum(charge_li)+sum(deposit_li)+sum(tax_li)
+    print('iid_li',iid_li)
+    print('iname_li',iname_li)
+    print('ilink_li',ilink_li)
+    print('charge_li',charge_li)
+    print('deposit_li',deposit_li)
+    print('tax_li',tax_li)
+    print('total',total)
+    # elif len(rows)>1:
+        # iid_li=['https://www.hubbub.shop/inventory/i/id='+i[0] for i in rows]
+        # iname_li=[i[1] for i in rows]
+        # ilink_li=['https://www.hubbub.shop/inventory/i/id='+i[0] for i in rows]
+        # deposit_li=[]
+        # total_li=[]
+    # print('iid_li',iid_li)
+    # print('iname_li',iname_li)
+    # print('ilink_li',ilink_li)
     print('tid:',tid)
     print('address:',address)
     print('phone:',phone)
     print('payment:',payment)
-    start_time_dt=datetime.datetime.strptime(date+' '+time,'%Y-%m-%d %H:%M:%S')
-    start_time_str=date+'T'+time
+    if ltype=='dropoff':
+        start_time_dt=datetime.datetime.strptime(date+' '+time,'%Y-%m-%d %H:%M:%S')
+        start_time_str=date+'T'+time
+    elif ltype=='pickup':
+        start_time_dt=datetime.datetime.strptime(p_date+' '+time,'%Y-%m-%d %H:%M:%S')
+        start_time_str=p_date+'T'+time
     print('start_time_dt',start_time_dt)
+    print('start_time_str',start_time_str)
     end_time_dt=start_time_dt + datetime.timedelta(hours=1)
     end_time_str=end_time_dt.strftime('%Y-%m-%d %H:%M:%S')
     end_time_str=end_time_str.replace(' ','T')
+    end_time_dt_user=start_time_dt + datetime.timedelta(minutes=15)
+    end_time_str_user=end_time_dt_user.strftime('%Y-%m-%d %H:%M:%S')
+    end_time_str_user=end_time_str_user.replace(' ','T')
     print('end_time_dt',end_time_dt)
     print('end_time_str',end_time_str)
-    df_event = {
-        'summary': renter.split(" ")[0].capitalize()+" "+renter.split(" ")[1].capitalize()+ ' '+ltype.capitalize(),
-        'location': address,
-        'start': {'dateTime':start_time_str, 'timeZone':'America/New_York',}, #start_time_str ## have to have T before time
-        'end':{'dateTime': end_time_str,'timeZone':'America/New_York',}, # end_time_str
-        'description': """ %s \n\nTotal $ from %s
-         """%(tlink,payment),
-        'reminders': {
-            'useDefault': False,
-            'overrides': [
-            {'method': 'popup', 'minutes': 30},
-            ],
-          },
-        # 'tag':,
-        }
-    print('df_event',df_event)
+    print('email',email)
+    print('notes',notes)
 
-    pu_event = {
-        'summary': renter.split(" ")[0].capitalize()+" "+renter.split(" ")[1].capitalize()+ ' '+ltype.capitalize(),
-        'location': address,
-        'start': {'dateTime':start_time_str, 'timeZone':'America/New_York',}, #start_time_str ## have to have T before time
-        'end':{'dateTime': end_time_str,'timeZone':'America/New_York',}, # end_time_str
-        'description': """ %s \n\nDeposit $ to %s
-         """%(tlink,payment),
-        'reminders': {
-            'useDefault': False,
-            'overrides': [
-            {'method': 'popup', 'minutes': 30},
-            ],
-          },
-    }
+    items_html_ops="<ul>"
+    for i in range(len(iname_li)):
+        items_html_ops+= ("<li>"+"<a href=%s>(%s) %s</a>"%(ilink_li[i],iid_li[i],iname_li[i])+"</li>")
+    items_html_ops+="</ul>"
+
+    items_html_user="<ul>"
+    for i in range(len(iname_li)):
+        items_html_user+= ("<li>"+"<a href=%s>%s</a>"%(ilink_li[i],iname_li[i])+"</li>")
+    items_html_user+="</ul>"
 
     if ltype=='dropoff':
-        event = service.events().insert(calendarId='c_puitor2pblvjgid67mj32m6em0@group.calendar.google.com', body=df_event).execute()
-    elif ltype=='pickup':
-        event = service.events().insert(calendarId='c_oclhvroroorb3fva3a85tqd2rc@group.calendar.google.com', body=pu_event).execute()
-    print('Event created: %s' % (event.get('htmlLink')))
 
-    return """event created at <a href=%s>%s </a>, double check for accuracy and add attendees"""%(event.get('htmlLink'),event.get('htmlLink'))
+        df_event_ops = {
+            'summary': renter.split(" ")[0].capitalize()+" "+renter.split(" ")[1].capitalize()+ ' '+ltype.capitalize(),
+            'location': address,
+            'start': {'dateTime':start_time_str, 'timeZone':'America/New_York',}, #start_time_str ## have to have T before time
+            'end':{'dateTime': end_time_str,'timeZone':'America/New_York',}, # end_time_str
+            'description': """%s \n\nItems:%sTotal $%s from %s\n\nUser notes: %s\n\nUser phone: %s
+             """%(tlink,items_html_ops,total,payment,notes,phone),
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                {'method': 'popup', 'minutes': 30},
+                ],
+              },
+            }
+        print('df_event_ops',df_event_ops)
+
+
+        summary = renter.split(" ")[0].capitalize()
+        if len(rows)>1:
+            summary+=" Items"
+        else:
+            summary+=" Item"
+        summary+=" Drop-off"
+
+        df_event_user = {
+            'summary': summary,
+            'location': address,
+            'start': {'dateTime':start_time_str, 'timeZone':'America/New_York',}, #start_time_str ## have to have T before time
+            'end':{'dateTime': end_time_str_user,'timeZone':'America/New_York',}, # end_time_str
+            'description': """Our Hub-Bud ___ will be dropping off the following:\n%sTotal due at drop-off: $%s \n\nPlease be prompt. Failure to show up after 30 minutes will result in a $5 drop-off attempt charge and a forfeit of guarantee of rental of the item(s).
+             """%(items_html_user,total),
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                {'method': 'popup', 'minutes': 30},
+                ],
+              },
+        }
+
+        ops_event = service.events().insert(calendarId='c_puitor2pblvjgid67mj32m6em0@group.calendar.google.com', body=df_event_ops).execute()
+        user_event = service.events().insert(calendarId='c_puitor2pblvjgid67mj32m6em0@group.calendar.google.com', body=df_event_user).execute()
+
+    elif ltype=='pickup':
+
+        pu_event_ops = {
+            'summary': renter.split(" ")[0].capitalize()+" "+renter.split(" ")[1].capitalize()+ ' '+ltype.capitalize(),
+            'location': address,
+            'start': {'dateTime':start_time_str, 'timeZone':'America/New_York',}, #start_time_str ## have to have T before time
+            'end':{'dateTime': end_time_str,'timeZone':'America/New_York',}, # end_time_str
+            'description': """%s \n\nItems:%sUser notes: %s\n\nUser phone: %s
+             """%(tlink,items_html_ops,notes,phone),
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                {'method': 'popup', 'minutes': 30},
+                ],
+              },
+        }
+        print('pu_event_ops',pu_event_ops)
+
+
+        summary = renter.split(" ")[0].capitalize()
+        if len(rows)>1:
+            summary+=" Items"
+        else:
+            summary+=" Item"
+        summary+=" Pick-up"
+
+        pu_event_user = {
+            'summary': summary,
+            'location': address,
+            'start': {'dateTime':start_time_str, 'timeZone':'America/New_York',}, #start_time_str ## have to have T before time
+            'end':{'dateTime': end_time_str_user,'timeZone':'America/New_York',}, # end_time_str
+            'description': """Our Hub-Bud ___ will be picking up the following:\n%sPlease be prompt. Failure to show up after 30 minutes will result in a $5 pickup attempt charge. Please make sure each item is in a clean and usable state upon pickup, charges may be applied otherwise.\n(For mini-fridges, it is recommended to unplug and defrost them at least 24 hours before pick-up)
+             """%(items_html_user),
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                {'method': 'popup', 'minutes': 30},
+                ],
+              },
+        }
+
+        ops_event = service.events().insert(calendarId='c_oclhvroroorb3fva3a85tqd2rc@group.calendar.google.com', body=pu_event_ops).execute()
+        user_event = service.events().insert(calendarId='c_oclhvroroorb3fva3a85tqd2rc@group.calendar.google.com', body=pu_event_user).execute()
+
+    # print('Event created: %s' % (event.get('htmlLink')))
+
+    return """ops event created at <a href=%s>%s </a>, user event created at <a href=%s>%s </a>, double check for correctness and add attendees"""%(ops_event.get('htmlLink'),ops_event.get('htmlLink'),user_event.get('htmlLink'),user_event.get('htmlLink'))
 
 
 
