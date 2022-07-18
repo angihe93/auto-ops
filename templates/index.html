@@ -5,7 +5,6 @@
     <title></title>
   </head>
   <body>
-    <a href="{{ url_for('makecalevents') }}">Make Cal Events</a>
     <table>
       <tr>
         <th>id</th>
@@ -54,7 +53,7 @@
         <td>{{ row[3] }}</td> <!-- customer phone -->
         <td>{{ row[12] }}</td> <!-- payment -->
         <td>{{ row[4] }}</td> <!-- customer address -->
-        <td><a href="{{ url_for('makecalevents') }}">{{ logi_li[loop.index0][6] }}</a></td> <!-- drop off time, nothing means it does not need an event, none means user has submitted availability but ops has not chosen a time-->
+        <td><a href="{{ url_for('makecalevents', ltype='dropoff', renter=row[1], date=row[0], time=logi_li[loop.index0][6], item_name=row[8], item_link=row[11], tid=row[13], address=logi_li[loop.index0][7], phone=row[3], payment=row[12]) }}">{{ logi_li[loop.index0][6] }}</a></td> <!-- drop off time, nothing means it does not need an event, none means user has submitted availability but ops has not chosen a time-->
         <td> </td>
         <td> </td>
         <td> </td>
@@ -65,7 +64,7 @@
         <td> </td> <!-- total sub -->
         <td> </td> <!-- total due -->
         <td> </td> <!-- payment acct -->
-        <td> {{ logi_li[loop.index0][9] }} </td> <!-- pick up datetime, 9th element in logi li item -->
+        <td><a href="{{ url_for('makecalevents', ltype='pickup', renter=row[1], date=row[0], time=logi_li[loop.index0][9], item_name=row[8], item_link=row[11], tid=row[13], address=logi_li[loop.index0][7], phone=row[3], payment=row[12]) }}"> {{ logi_li[loop.index0][9] }} </td> <!-- pick up datetime, 9th element in logi li item -->
         <td> </td>
         <td> </td>
         <td> </td>
