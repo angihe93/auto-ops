@@ -55,7 +55,7 @@ def index():
     now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
     # print('Getting the upcoming 10 events')
     try:
-        events_result = service.events().list(calendarId='hello@hubbub.shop', timeMin=now,
+        events_result = service.events().list(calendarId='c_oclhvroroorb3fva3a85tqd2rc@group.calendar.google.com', timeMin=now,
                                               maxResults=10, singleEvents=True,
                                               orderBy='startTime').execute()
         print('events_result',events_result)
