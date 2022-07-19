@@ -2,7 +2,9 @@ from __future__ import print_function
 import os
 import psycopg2
 from flask import Flask, render_template, request, redirect
+# from flask_login import UserMixin, LoginManager
 import flask
+# import jwt, time, random
 import bcrypt
 import datetime
 import pytz
@@ -18,11 +20,14 @@ import google_auth_oauthlib.flow
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+# login_manager = LoginManager()
+# login_manager.init_app(app)
 
 host = os.environ.get('DB_HOST')
 database = os.environ.get('DB_DB')
 user = os.environ.get('DB_USER')
 password = os.environ.get('DB_PW')
+
 
 def get_db_connection():
     conn = psycopg2.connect(
@@ -32,181 +37,8 @@ def get_db_connection():
         password=password)
     return conn
 
-
-@app.route('/', methods =["GET", "POST"])
-def gfg():
-    if request.method == "POST":
-        key = request.form.get("key")
-        if bcrypt.checkpw(bytes(key,encoding='utf-8'),b'$2b$12$h4LsLf0upvAPCiKTZFnxnOj25gp9OTmeRtca3y8eULezXvdlF3O1C'):
-            # return flask.redirect(flask.url_for('mainsiteops'))
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute('''select cast(orders.res_date_start as varchar), lower(replace(users.name,',',' ')), users.email, profiles.phone, users.address_num || ' ' || users.address_street || ', ' || users.address_apt || ', NY ' || users. address_zip as address,
-                        '$' || cast(round( CAST(reservations.charge as numeric), 2) as varchar), '$' || cast(round( CAST(reservations.deposit as numeric), 2) as varchar), '$' || cast(round( CAST(reservations.tax as numeric), 2) as varchar),
-                        '(' || items.id || ') ' || items.name, cast(orders.res_date_end as varchar),
-                        reservations.is_extended, 'https://www.hubbub.shop/inventory/i/id=' || cast(items.id as varchar), '@' || users.payment,
-                        orders.id, orders.renter_id, order_dropoffs.dt_sched, order_dropoffs.dt_completed, order_pickups.dt_sched, order_pickups.dt_completed,
-                        reservations.dt_created
-                        from orders
-                        inner join reservations on orders.renter_id=reservations.renter_id and orders.item_id=reservations.item_id and orders.res_date_start = reservations.date_started and orders.res_date_end = reservations.date_ended
-                        inner join items on items.id=orders.item_id
-                        inner join users on users.id=orders.renter_id
-                        inner join profiles on profiles.id=users.id
-                        left join order_dropoffs on orders.id=order_dropoffs.order_id
-                        left join order_pickups on orders.id=order_pickups.order_id
-                        order by orders.res_date_start, reservations.dt_created''')
-
-            rows = cur.fetchall()
-            print('rows:',rows[-5:])
-            # res date start, res date end, order id, renter id, order_dropoffs dt_sched, order_pickups dt_sched, 1 if dropoff needs event, 1 if pickup needs event
-            event_li = []
-            for i in rows:
-                if type(i[15])!=type(None) and type(i[16])==type(None) and type(i[17])!=type(None) and type(i[18])==type(None): # both dropoff and pickup needs events
-                    event_li.append((i[0],i[9],i[13],i[14],i[15],i[17],1,1)) # res date start, res date end, order id, renter id, order_dropoffs dt_sched, order_pickups dt_sched, 1 if dropoff needs event, 1 if pickup needs event
-                elif type(i[15])!=type(None) and type(i[16])==type(None) and type(i[17])==type(None) and type(i[18])==type(None): # only dropoff need event
-                    event_li.append((i[0],i[9],i[13],i[14],i[15],i[17],1,0))
-                elif type(i[15])!=type(None) and type(i[16])!=type(None) and type(i[17])!=type(None) and type(i[18])==type(None): # only pickup need event
-                    event_li.append((i[0],i[9],i[13],i[14],i[15],i[17],0,1))
-                else: # neither needs event yet
-                    event_li.append((i[0],i[9],i[13],i[14],i[15],i[17],0,0))
-
-            cur.execute("select * from logistics")
-            logistics = cur.fetchall()
-
-            logi_li = [] # everything in event_li except dt_sched, plus chosen time, address, notes for pick up and dropoff
-            # res date start, res date end, order id, renter id, 1 if dropoff needs event, 1 if pickup needs event
-            # add logistics data, where either dropoff needs event or pickup needs event, add the corresponding logistics row
-            for i in event_li:
-                if i[-2]==1 and i[-1]==0: # dropoff needs event
-                    # print('dropoff needs event')
-                    # join with logstics on dt_sched and renter_id, make sure dt_sched is from order_dropoffs
-                    dts = i[4]
-                    rid = i[3]
-                    logi = [l for l in logistics if l[0]==dts and l[4]==rid][0]
-                    logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],logi[-1],str(logi[5])+' '+logi[6]+', '+logi[7]+', NY '+logi[8],logi[1],'','',''))
-                    # print(logi)
-                elif i[-1]==1 and i[-2]==0: # pickup needs event
-                    # print('pickup needs event')
-                    dts = i[5]
-                    rid = i[3]
-                    logi = [l for l in logistics if l[0]==dts and l[4]==rid][0]
-                    logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','',logi[-1],str(logi[5])+' '+logi[6]+' '+logi[7]+' '+logi[8],logi[1]))
-                    # print(logi)
-                elif i[-2]==1 and i[-1]==1: # both needs events
-                    # print('both need event')
-                    dts_d = i[4]
-                    dts_p = i[5]
-                    rid = i[3]
-                    logi_d = [l for l in logistics if l[0]==dts_d and l[4]==rid][0]
-                    logi_p = [l for l in logistics if l[0]==dts_p and l[4]==rid][0]
-                    logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],logi_d[-1],str(logi_d[5])+' '+logi_d[6]+' '+logi_d[7]+' '+logi_d[8],logi_d[1],logi_p[-1],str(logi_p[5])+' '+logi_p[6]+' '+logi_p[7]+' '+logi_p[8],logi_p[1]))
-                else: # neither needs event
-                    # print('else')
-                    logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','','','',''))
-
-            # check for extensions and prepend appropriate pickup dates to pickup datetime column
-            cur.execute("select * from extensions")
-            extensions=cur.fetchall()
-            ext_li=[] # holds the date that go in pickup datetime
-            for i in rows:
-                # if order number is in extensions, add extension values, else, add none
-                e = [e[4] for e in extensions if e[0]==i[13]]
-                if len(e)>0:
-                    # if multiple extensions on same item/order, multiple rows in extensions with same order id but res dates are changed
-                    # sort e by res_date_end, take the latest res_date_end
-                    e.sort()
-                    ext_li.append(e[-1])
-                else:
-                    ext_li.append(i[9])
-
-            cur.close()
-            conn.close()
-
-            # list to store calendar info: dropoff/pickup type, renter name, rental start (for dropoff), rental end (for pickup), chosen time, items, total due/deposit return, task id from ops (id=order id), renter address, renter phone, renter payment
-            # add it to session so makecalevents can access https://stackoverflow.com/questions/27611216/how-to-pass-a-variable-between-flask-pages
-
-            return render_template('index.html', rows=rows, logi_li=logi_li, ext_li=ext_li)
-            # # return render_template("index.html")
-    return render_template("key.html")
-
-# @app.route('/mainsiteops')
-# def mainsiteops():
-#     conn = get_db_connection()
-#     cur = conn.cursor()
-#     cur.execute('''select cast(orders.res_date_start as varchar), lower(replace(users.name,',',' ')), users.email, profiles.phone, users.address_num || ' ' || users.address_street || ', ' || users.address_apt || ', NY ' || users. address_zip as address,
-#                 '$' || cast(round( CAST(reservations.charge as numeric), 2) as varchar), '$' || cast(round( CAST(reservations.deposit as numeric), 2) as varchar), '$' || cast(round( CAST(reservations.tax as numeric), 2) as varchar),
-#                 '(' || items.id || ') ' || items.name, cast(orders.res_date_end as varchar),
-#                 reservations.is_extended, 'https://www.hubbub.shop/inventory/i/id=' || cast(items.id as varchar), '@' || users.payment,
-#                 orders.id, orders.renter_id, order_dropoffs.dt_sched, order_dropoffs.dt_completed, order_pickups.dt_sched, order_pickups.dt_completed,
-#                 reservations.dt_created
-#                 from orders
-#                 inner join reservations on orders.renter_id=reservations.renter_id and orders.item_id=reservations.item_id and orders.res_date_start = reservations.date_started and orders.res_date_end = reservations.date_ended
-#                 inner join items on items.id=orders.item_id
-#                 inner join users on users.id=orders.renter_id
-#                 inner join profiles on profiles.id=users.id
-#                 left join order_dropoffs on orders.id=order_dropoffs.order_id
-#                 left join order_pickups on orders.id=order_pickups.order_id
-#                 order by orders.res_date_start, reservations.dt_created''')
-#
-#     rows = cur.fetchall()
-#     # res date start, res date end, order id, renter id, order_dropoffs dt_sched, order_pickups dt_sched, 1 if dropoff needs event, 1 if pickup needs event
-#     event_li = []
-#     for i in rows:
-#         if type(i[15])!=type(None) and type(i[16])==type(None) and type(i[17])!=type(None) and type(i[18])==type(None): # both dropoff and pickup needs events
-#             event_li.append((i[0],i[9],i[13],i[14],i[15],i[17],1,1)) # res date start, res date end, order id, renter id, order_dropoffs dt_sched, order_pickups dt_sched, 1 if dropoff needs event, 1 if pickup needs event
-#         elif type(i[15])!=type(None) and type(i[16])==type(None) and type(i[17])==type(None) and type(i[18])==type(None): # only dropoff need event
-#             event_li.append((i[0],i[9],i[13],i[14],i[15],i[17],1,0))
-#         elif type(i[15])!=type(None) and type(i[16])!=type(None) and type(i[17])!=type(None) and type(i[18])==type(None): # only pickup need event
-#             event_li.append((i[0],i[9],i[13],i[14],i[15],i[17],0,1))
-#         else: # neither needs event yet
-#             event_li.append((i[0],i[9],i[13],i[14],i[15],i[17],0,0))
-#
-#     cur.execute("select * from logistics")
-#     logistics = cur.fetchall()
-#
-#     logi_li = [] # everything in event_li except dt_sched, plus chosen time, address, notes for pick up and dropoff
-#     # res date start, res date end, order id, renter id, 1 if dropoff needs event, 1 if pickup needs event
-#     # add logistics data, where either dropoff needs event or pickup needs event, add the corresponding logistics row
-#     for i in event_li:
-#         if i[-2]==1 and i[-1]==0: # dropoff needs event
-#             # print('dropoff needs event')
-#             # join with logstics on dt_sched and renter_id, make sure dt_sched is from order_dropoffs
-#             dts = i[4]
-#             rid = i[3]
-#             logi = [l for l in logistics if l[0]==dts and l[4]==rid][0]
-#             logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],logi[-1],str(logi[5])+' '+logi[6]+', '+logi[7]+', NY '+logi[8],logi[1],'','',''))
-#             # print(logi)
-#         elif i[-1]==1 and i[-2]==0: # pickup needs event
-#             # print('pickup needs event')
-#             dts = i[5]
-#             rid = i[3]
-#             logi = [l for l in logistics if l[0]==dts and l[4]==rid][0]
-#             logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','',logi[-1],str(logi[5])+' '+logi[6]+' '+logi[7]+' '+logi[8],logi[1]))
-#             # print(logi)
-#         elif i[-2]==1 and i[-1]==1: # both needs events
-#             # print('both need event')
-#             dts_d = i[4]
-#             dts_p = i[5]
-#             rid = i[3]
-#             logi_d = [l for l in logistics if l[0]==dts_d and l[4]==rid][0]
-#             logi_p = [l for l in logistics if l[0]==dts_p and l[4]==rid][0]
-#             logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],logi_d[-1],str(logi_d[5])+' '+logi_d[6]+' '+logi_d[7]+' '+logi_d[8],logi_d[1],logi_p[-1],str(logi_p[5])+' '+logi_p[6]+' '+logi_p[7]+' '+logi_p[8],logi_p[1]))
-#         else: # neither needs event
-#             # print('else')
-#             logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','','','',''))
-#
-#
-#     cur.close()
-#     conn.close()
-#
-#     # list to store calendar info: dropoff/pickup type, renter name, rental start (for dropoff), rental end (for pickup), chosen time, items, total due/deposit return, task id from ops (id=order id), renter address, renter phone, renter payment
-#     # add it to session so makecalevents can access https://stackoverflow.com/questions/27611216/how-to-pass-a-variable-between-flask-pages
-#
-#     return render_template('index.html', rows=rows, logi_li=logi_li)
-#     # return render_template("index.html")
-
-@app.route('/test')
-def test_api_request():
+@app.route('/',)
+def index():
     if 'credentials' not in flask.session:
         return flask.redirect('authorize')
 
@@ -222,72 +54,186 @@ def test_api_request():
     # Call the Calendar API
     now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
     # print('Getting the upcoming 10 events')
-    # events_result = service.events().list(calendarId='primary', timeMin=now,
-    #                                       maxResults=10, singleEvents=True,
-    #                                       orderBy='startTime').execute()
-    # events = events_result.get('items', [])
+    try:
+        events_result = service.events().list(calendarId='hello@hubbub.shop', timeMin=now,
+                                              maxResults=10, singleEvents=True,
+                                              orderBy='startTime').execute()
+        print('events_result',events_result)
+        return flask.redirect('mainsiteops')
+        # events = events_result.get('items', [])
+    except:
+        return "please login with valid email"
+
+@app.route('/mainsiteops', methods =["GET", "POST"])
+def mainsiteops():
+    if 'credentials' not in flask.session:
+        return flask.redirect('authorize')
+
+    # Load credentials from the session.
+    credentials = google.oauth2.credentials.Credentials(
+      **flask.session['credentials'])
+    print('credentials loaded from session')
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('''select cast(orders.res_date_start as varchar), lower(replace(users.name,',',' ')), users.email, profiles.phone, users.address_num || ' ' || users.address_street || ', ' || users.address_apt || ', NY ' || users. address_zip as address,
+                '$' || cast(round( CAST(reservations.charge as numeric), 2) as varchar), '$' || cast(round( CAST(reservations.deposit as numeric), 2) as varchar), '$' || cast(round( CAST(reservations.tax as numeric), 2) as varchar),
+                '(' || items.id || ') ' || items.name, cast(orders.res_date_end as varchar),
+                reservations.is_extended, 'https://www.hubbub.shop/inventory/i/id=' || cast(items.id as varchar), '@' || users.payment,
+                orders.id, orders.renter_id, order_dropoffs.dt_sched, order_dropoffs.dt_completed, order_pickups.dt_sched, order_pickups.dt_completed,
+                reservations.dt_created
+                from orders
+                inner join reservations on orders.renter_id=reservations.renter_id and orders.item_id=reservations.item_id and orders.res_date_start = reservations.date_started and orders.res_date_end = reservations.date_ended
+                inner join items on items.id=orders.item_id
+                inner join users on users.id=orders.renter_id
+                inner join profiles on profiles.id=users.id
+                left join order_dropoffs on orders.id=order_dropoffs.order_id
+                left join order_pickups on orders.id=order_pickups.order_id
+                order by orders.res_date_start, reservations.dt_created''')
+
+    rows = cur.fetchall()
+    print('rows:',rows[-5:])
+    # res date start, res date end, order id, renter id, order_dropoffs dt_sched, order_pickups dt_sched, 1 if dropoff needs event, 1 if pickup needs event
+    event_li = []
+    for i in rows:
+        if type(i[15])!=type(None) and type(i[16])==type(None) and type(i[17])!=type(None) and type(i[18])==type(None): # both dropoff and pickup needs events
+            event_li.append((i[0],i[9],i[13],i[14],i[15],i[17],1,1)) # res date start, res date end, order id, renter id, order_dropoffs dt_sched, order_pickups dt_sched, 1 if dropoff needs event, 1 if pickup needs event
+        elif type(i[15])!=type(None) and type(i[16])==type(None) and type(i[17])==type(None) and type(i[18])==type(None): # only dropoff need event
+            event_li.append((i[0],i[9],i[13],i[14],i[15],i[17],1,0))
+        elif type(i[15])!=type(None) and type(i[16])!=type(None) and type(i[17])!=type(None) and type(i[18])==type(None): # only pickup need event
+            event_li.append((i[0],i[9],i[13],i[14],i[15],i[17],0,1))
+        else: # neither needs event yet
+            event_li.append((i[0],i[9],i[13],i[14],i[15],i[17],0,0))
+
+    cur.execute("select * from logistics")
+    logistics = cur.fetchall()
+
+    logi_li = [] # everything in event_li except dt_sched, plus chosen time, address, notes for pick up and dropoff
+    # res date start, res date end, order id, renter id, 1 if dropoff needs event, 1 if pickup needs event
+    # add logistics data, where either dropoff needs event or pickup needs event, add the corresponding logistics row
+    for i in event_li:
+        if i[-2]==1 and i[-1]==0: # dropoff needs event
+            # print('dropoff needs event')
+            # join with logstics on dt_sched and renter_id, make sure dt_sched is from order_dropoffs
+            dts = i[4]
+            rid = i[3]
+            logi = [l for l in logistics if l[0]==dts and l[4]==rid][0]
+            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],logi[-1],str(logi[5])+' '+logi[6]+', '+logi[7]+', NY '+logi[8],logi[1],'','',''))
+            # print(logi)
+        elif i[-1]==1 and i[-2]==0: # pickup needs event
+            # print('pickup needs event')
+            dts = i[5]
+            rid = i[3]
+            logi = [l for l in logistics if l[0]==dts and l[4]==rid][0]
+            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','',logi[-1],str(logi[5])+' '+logi[6]+' '+logi[7]+' '+logi[8],logi[1]))
+            # print(logi)
+        elif i[-2]==1 and i[-1]==1: # both needs events
+            # print('both need event')
+            dts_d = i[4]
+            dts_p = i[5]
+            rid = i[3]
+            logi_d = [l for l in logistics if l[0]==dts_d and l[4]==rid][0]
+            logi_p = [l for l in logistics if l[0]==dts_p and l[4]==rid][0]
+            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],logi_d[-1],str(logi_d[5])+' '+logi_d[6]+' '+logi_d[7]+' '+logi_d[8],logi_d[1],logi_p[-1],str(logi_p[5])+' '+logi_p[6]+' '+logi_p[7]+' '+logi_p[8],logi_p[1]))
+        else: # neither needs event
+            # print('else')
+            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','','','',''))
+
+    # check for extensions and prepend appropriate pickup dates to pickup datetime column
+    cur.execute("select * from extensions")
+    extensions=cur.fetchall()
+    ext_li=[] # holds the date that go in pickup datetime
+    for i in rows:
+        # if order number is in extensions, add extension values, else, add none
+        e = [e[4] for e in extensions if e[0]==i[13]]
+        if len(e)>0:
+            # if multiple extensions on same item/order, multiple rows in extensions with same order id but res dates are changed
+            # sort e by res_date_end, take the latest res_date_end
+            e.sort()
+            ext_li.append(e[-1])
+        else:
+            ext_li.append(i[9])
+
+    cur.close()
+    conn.close()
+
+    # list to store calendar info: dropoff/pickup type, renter name, rental start (for dropoff), rental end (for pickup), chosen time, items, total due/deposit return, task id from ops (id=order id), renter address, renter phone, renter payment
+    # add it to session so makecalevents can access https://stackoverflow.com/questions/27611216/how-to-pass-a-variable-between-flask-pages
+
+    return render_template('index.html', rows=rows, logi_li=logi_li, ext_li=ext_li)
+            # # return render_template("index.html")
+    # return render_template("key.html")
+
+
+# @app.route('/test')
+# def test_api_request():
+#     if 'credentials' not in flask.session:
+#         return flask.redirect('authorize')
+#
+#     # Load credentials from the session.
+#     credentials = google.oauth2.credentials.Credentials(
+#       **flask.session['credentials'])
+#     print('credentials loaded from session')
+#
+#     # try:
+#     service = googleapiclient.discovery.build('calendar', 'v3', credentials=credentials)
+#     print('service built')
+#
+#     # Call the Calendar API
+#     now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
+#
+#     event = {
+#       'summary': 'Google I/O 2021',
+#       'location': '800 Howard St., San Francisco, CA 94103',
+#       'description': 'A chance to hear more about Google\'s developer products.',
+#       'start': {
+#         'dateTime': '2022-07-13T09:00:00-07:00',
+#         'timeZone': 'America/Los_Angeles',
+#       },
+#       'end': {
+#         'dateTime': '2022-07-28T17:00:00-07:00',
+#         'timeZone': 'America/Los_Angeles',
+#       },
+#       'recurrence': [
+#         'RRULE:FREQ=DAILY;COUNT=2'
+#       ],
+#       'attendees': [
+#         {'email': 'lpage@example.com'},
+#         {'email': 'sbrin@example.com'},
+#       ],
+#       'reminders': {
+#         'useDefault': False,
+#         'overrides': [
+#           {'method': 'email', 'minutes': 24 * 60},
+#           {'method': 'popup', 'minutes': 10},
+#         ],
+#       },
+#     }
+#
+#     event = service.events().insert(calendarId='ah3354@columbia.edu', body=event).execute()
+#     print('Event created: %s' % (event.get('htmlLink')))
+#
+#     return event.get('htmlLink')
+#
+#     # except: # HttpError as error:
+#     #     print('An error occurred: %s') # % error)
+#     #     return "error"
+
+    # def credentials_to_dict(credentials):
+    #     return {'token': credentials.token,
+    #             'refresh_token': credentials.refresh_token,
+    #             'token_uri': credentials.token_uri,
+    #             'client_id': credentials.client_id,
+    #             'client_secret': credentials.client_secret,
+    #             'scopes': credentials.scopes,
+    #             'id_token': credentials.id_token}
+    # # Save credentials back to session in case access token was refreshed.
+    # # ACTION ITEM: In a production app, you likely want to save these
+    # #              credentials in a persistent database instead.
+    # flask.session['credentials'] = credentials_to_dict(credentials)
     #
-    # if not events:
-    #     print('No upcoming events found.')
-    #     return
     #
-    # # Prints the start and name of the next 10 events
-    # for event in events:
-    #     start = event['start'].get('dateTime', event['start'].get('date'))
-    #     print(start, event['summary'])
-    #
-    event = {
-      'summary': 'Google I/O 2021',
-      'location': '800 Howard St., San Francisco, CA 94103',
-      'description': 'A chance to hear more about Google\'s developer products.',
-      'start': {
-        'dateTime': '2022-07-13T09:00:00-07:00',
-        'timeZone': 'America/Los_Angeles',
-      },
-      'end': {
-        'dateTime': '2022-07-28T17:00:00-07:00',
-        'timeZone': 'America/Los_Angeles',
-      },
-      'recurrence': [
-        'RRULE:FREQ=DAILY;COUNT=2'
-      ],
-      'attendees': [
-        {'email': 'lpage@example.com'},
-        {'email': 'sbrin@example.com'},
-      ],
-      'reminders': {
-        'useDefault': False,
-        'overrides': [
-          {'method': 'email', 'minutes': 24 * 60},
-          {'method': 'popup', 'minutes': 10},
-        ],
-      },
-    }
-
-    event = service.events().insert(calendarId='ah3354@columbia.edu', body=event).execute()
-    print('Event created: %s' % (event.get('htmlLink')))
-
-    return event.get('htmlLink')
-
-    # except: # HttpError as error:
-    #     print('An error occurred: %s') # % error)
-    #     return "error"
-
-    def credentials_to_dict(credentials):
-        return {'token': credentials.token,
-                'refresh_token': credentials.refresh_token,
-                'token_uri': credentials.token_uri,
-                'client_id': credentials.client_id,
-                'client_secret': credentials.client_secret,
-                'scopes': credentials.scopes,
-                'id_token': credentials.id_token}
-    # Save credentials back to session in case access token was refreshed.
-    # ACTION ITEM: In a production app, you likely want to save these
-    #              credentials in a persistent database instead.
-    flask.session['credentials'] = credentials_to_dict(credentials)
-
-
-    # return flask.jsonify(**files)
+    # # return flask.jsonify(**files)
 
 @app.route('/authorize')
 def authorize():
@@ -351,7 +297,7 @@ def oauth2callback():
     flask.session['credentials'] = credentials_to_dict(credentials)
 
     # return flask.redirect(flask.url_for('test_api_request')) # test_api_request
-    return flask.redirect(flask.url_for('gfg'))
+    return flask.redirect(flask.url_for('mainsiteops'))
 
 
 
@@ -397,17 +343,7 @@ def makecalevents():
 
     conn = get_db_connection()
     cur = conn.cursor()
-    # items_in_dropoff_query = """
-    #     select order_dropoffs.order_id, order_dropoffs.renter_id, order_dropoffs.dt_sched,
-    #     order_dropoffs.dropoff_date, logistics.chosen_time, round( CAST(reservations.charge as numeric), 2),
-    #     round( CAST(reservations.deposit as numeric), 2), round( CAST(reservations.tax as numeric), 2),
-    #     reservations.item_id, items.name
-    #     from order_dropoffs
-    #     inner join logistics on logistics.dt_sched=order_dropoffs.dt_sched and logistics.renter_id=order_dropoffs.renter_id
-    #     inner join reservations on order_dropoffs.dropoff_date=reservations.date_started
-    #     inner join items on reservations.item_id=items.id
-    #     where reservations.is_calendared=TRUE and order_dropoffs.renter_id=%s and order_dropoffs.dropoff_date='%s' and logistics.chosen_time='%s'
-    # """%(rid,date,time)
+
     if ltype=='dropoff':
         items_in_dropoff_query = """
             select distinct reservations.item_id, items.name,
@@ -468,15 +404,6 @@ def makecalevents():
     print('deposit_li',deposit_li)
     print('tax_li',tax_li)
     print('total',total)
-    # elif len(rows)>1:
-        # iid_li=['https://www.hubbub.shop/inventory/i/id='+i[0] for i in rows]
-        # iname_li=[i[1] for i in rows]
-        # ilink_li=['https://www.hubbub.shop/inventory/i/id='+i[0] for i in rows]
-        # deposit_li=[]
-        # total_li=[]
-    # print('iid_li',iid_li)
-    # print('iname_li',iname_li)
-    # print('ilink_li',ilink_li)
     print('tid:',tid)
     print('address:',address)
     print('phone:',phone)
@@ -603,6 +530,16 @@ def makecalevents():
     return """ops event created at <a href=%s>%s </a>, user event created at <a href=%s>%s </a>, double check for correctness and add attendees"""%(ops_event.get('htmlLink'),ops_event.get('htmlLink'),user_event.get('htmlLink'),user_event.get('htmlLink'))
 
 
+@app.route('/clear')
+def clear_credentials():
+    print('clear:')
+    print('flask.session',flask.session)
+    if 'credentials' in flask.session:
+        del flask.session['credentials']
+        del flask.session['state']
+        print('flask.session',flask.session)
+    return ('Credentials have been cleared.<br><br>') # +
+        # print_index_table())
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=8080, debug=True, ssl_context='adhoc')
