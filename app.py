@@ -74,6 +74,16 @@ def mainsiteops():
       **flask.session['credentials'])
     print('credentials loaded from session')
 
+    try:
+        events_result = service.events().list(calendarId='hello@hubbub.shop', timeMin=now,
+                                              maxResults=10, singleEvents=True,
+                                              orderBy='startTime').execute()
+        print('events_result',events_result)
+        # return flask.redirect('mainsiteops')
+        # events = events_result.get('items', [])
+    except:
+        return "please login with valid email"
+
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute('''select cast(orders.res_date_start as varchar), lower(replace(users.name,',',' ')), users.email, profiles.phone, users.address_num || ' ' || users.address_street || ', ' || users.address_apt || ', NY ' || users. address_zip as address,
