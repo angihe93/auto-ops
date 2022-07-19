@@ -75,6 +75,7 @@ def mainsiteops():
     print('credentials loaded from session')
 
     try:
+        now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
         events_result = service.events().list(calendarId='hello@hubbub.shop', timeMin=now,
                                               maxResults=10, singleEvents=True,
                                               orderBy='startTime').execute()
