@@ -19,7 +19,7 @@ import google.oauth2.credentials
 import google_auth_oauthlib.flow
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.environ.get('SECRET_KEY')
 # login_manager = LoginManager()
 # login_manager.init_app(app)
 
