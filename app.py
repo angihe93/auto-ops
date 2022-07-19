@@ -62,6 +62,7 @@ def index():
         return flask.redirect('mainsiteops')
         # events = events_result.get('items', [])
     except:
+        print("exception when accessing events in index()")
         return "please login with valid email"
 
 @app.route('/mainsiteops', methods =["GET", "POST"])
@@ -75,14 +76,17 @@ def mainsiteops():
     print('credentials loaded from session')
 
     try:
+        service = googleapiclient.discovery.build('calendar', 'v3', credentials=credentials)
+        print('service built')
         now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
-        events_result = service.events().list(calendarId='hello@hubbub.shop', timeMin=now,
+        events_result = service.events().list(calendarId='c_oclhvroroorb3fva3a85tqd2rc@group.calendar.google.com', timeMin=now,
                                               maxResults=10, singleEvents=True,
                                               orderBy='startTime').execute()
         print('events_result',events_result)
         # return flask.redirect('mainsiteops')
         # events = events_result.get('items', [])
     except:
+        print("exception when accessing events in mainsiteops")
         return "please login with valid email"
 
     conn = get_db_connection()
