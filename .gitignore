@@ -1,3 +1,9 @@
 venv
 __pycache__
 credentials.json
+templates/mainsiteops.html
+templates/makecalevents.html
+templates/key.html
+google-credentials.json
+token.json
+app2.py
