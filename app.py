@@ -64,7 +64,11 @@ def index():
         # events = events_result.get('items', [])
     except:
         print("exception when accessing events in index()")
-        return "please login with valid email"
+        # return "please login with valid email"
+        return """
+        please login with valid email<br>
+        <a href="clear">clear credentials and try again</a>
+        """
 
 @app.route('/mainsiteops', methods =["GET", "POST"])
 def mainsiteops():
@@ -88,7 +92,11 @@ def mainsiteops():
         # events = events_result.get('items', [])
     except:
         print("exception when accessing events in mainsiteops")
-        return "please login with valid email"
+        # return "please login with valid email"
+        return """
+        please login with valid email<br>
+        <a href="clear">clear credentials and try again</a>
+        """
 
     conn = get_db_connection()
     cur = conn.cursor()
@@ -626,7 +634,10 @@ def calendar():
         # events = events_result.get('items', [])
     except:
         print("exception when accessing events in mainsiteops")
-        return "please login with valid email"
+        return """
+        please login with valid email<br>
+        <a href="clear">clear credentials and try again</a>
+        """
 
     month_dict = {'01':['Jan',31],'02':['Feb',28],'03':['Mar',31],'04':['Apr',30],'05':['May',31],'06':['Jun',30],
                   '07':['Jul',31],'08':['Aug',31],'09':['Sep',30],'10':['Oct',31],'11':['Nov',30],'12':['Dec',31]}
@@ -740,6 +751,7 @@ def calendar():
           body {
             font-family: calibri;}
         </style>
+        <a href="mainsiteops">Main site Ops view</a>
         <ul>
         <li>each entry starts with the task type (pickup or dropoff), location (CU or NYU), and time (precise time if Ops has scheduled a time, timeslots if user has submitted availability but Ops has not scheduled a time, empty if user has not submitted availability)</li>
         <li>location is CU if the zipcode on dropoff/pickup form (or the zipcode on file, if user has not filled out the form) is 10025 or 10027. location is NYU if the zipcode is one of the following: 10003, 10011, 10012, 10014. location is other if the zipcode is different from any of the above</li>
