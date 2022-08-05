@@ -740,6 +740,10 @@ def calendar():
           body {
             font-family: calibri;}
         </style>
+        <ul>
+        <li>each entry starts with the task type (pickup or dropoff), location (CU or NYU), and time (precise time if Ops has scheduled a time, timeslots if user has submitted availability but Ops has not scheduled a time, empty if user has not submitted availability)</li>
+        <li>location is CU if the zipcode on dropoff/pickup form (or the zipcode on file, if user has not filled out the form) is 10025 or 10027. location is NYU if the zipcode is one of the following: 10003, 10011, 10012, 10014. location is other if the zipcode is different from any of the above</li>
+        </ul>
         <table>
           <tr>
             <th>Aug 2022</th>
