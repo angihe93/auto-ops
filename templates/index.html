@@ -9,12 +9,12 @@
     <title></title>
   </head>
   <body>
-    explanation for drop off time and pick up time column values:
+    <h3><mark>site updates:</mark></h3>
     <ul>
-      <li>time is empty if drop off/pick up is completed or user has not submitted their availability</li>
-      <li>time is None if user submitted their availability but Ops has not set a time</li>
-      <li>time has value if Ops has set a time based on user availability, click on link to make google calendar events</li>
+      <li>orders are now grouped so that each user's orders with the same rental start date are together, regardless of whether the orders were placed at separate times</li>
+      <li>dropoff and pickup times now show user's availability timeslots or the precise chosen time with link to make the google calendar events. empty means dropoff/pickup is completed or user has not submitted availability</li>
     </ul>
+
     <table>
       <tr>
         <th>id</th>
@@ -63,7 +63,11 @@
         <td>{{ row[3] }}</td> <!-- customer phone -->
         <td>{{ row[12] }}</td> <!-- payment -->
         <td>{{ row[4] }}</td> <!-- customer address -->
-        <td><a href="{{ url_for('makecalevents', ltype='dropoff', renter=row[1], date=row[0], time=logi_li[loop.index0][6], item_name=row[8], item_link=row[11], tid=row[13], address=logi_li[loop.index0][7], phone=row[3], payment=row[12], notes=logi_li[loop.index0][8], email=row[2], rid=row[14]) }}">{{ logi_li[loop.index0][6] }}</a></td> <!-- drop off time, nothing means it does not need an event, none means user has submitted availability but ops has not chosen a time-->
+        {% if logi_li[loop.index0][-2]==1 %}
+         <td><a href="{{ url_for('makecalevents', ltype='dropoff', renter=row[1], date=row[0], time=logi_li[loop.index0][6], item_name=row[8], item_link=row[11], tid=row[13], address=logi_li[loop.index0][7], phone=row[3], payment=row[12], notes=logi_li[loop.index0][8], email=row[2], rid=row[14]) }}">{{ logi_li[loop.index0][6] }}</a></td> <!-- drop off time, nothing means it does not need an event, none means user has submitted availability but ops has not chosen a time-->
+        {% else %}
+         <td>{{logi_li[loop.index0][6]}}</td>
+        {% endif %}
         <td> </td>
         <td> </td>
         <td> </td>
@@ -74,7 +78,11 @@
         <td> </td> <!-- total sub -->
         <td> </td> <!-- total due -->
         <td> </td> <!-- payment acct -->
+        {% if logi_li[loop.index0][-1]==1 %}
         <td><a href="{{ url_for('makecalevents', ltype='pickup', renter=row[1], date=row[9], time=logi_li[loop.index0][9], item_name=row[8], item_link=row[11], tid=row[13], address=logi_li[loop.index0][7], phone=row[3], payment=row[12], notes=logi_li[loop.index0][11], email=row[2], rid=row[14], p_date=ext_li[loop.index0]) }}"> {{ ext_li[loop.index0] }} @ {{logi_li[loop.index0][9] }} </td> <!-- pick up datetime, 9th element in logi li item -->
+        {% else %}
+        <td>{{ ext_li[loop.index0] }} @ {{logi_li[loop.index0][9]}}</td>
+        {% endif %}
         <td> </td>
         <td> </td>
         <td> </td>

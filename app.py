@@ -158,9 +158,11 @@ def mainsiteops():
             #### if logi[-1] ie. chosen time is null, then append timeslots instead, and change link to the task id ###
             if type(logi[-1])==type(None):
                 dropoff_time=logi[3] # show timeslots
+                activate_makecalevents_url_dropoff=0
             else:
                 dropoff_time=logi[-1]
-            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],dropoff_time,str(logi[5])+' '+logi[6]+', '+logi[7]+', NY '+logi[8],logi[1],'','',''))
+                activate_makecalevents_url_dropoff=1
+            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],dropoff_time,str(logi[5])+' '+logi[6]+', '+logi[7]+', NY '+logi[8],logi[1],'','','',activate_makecalevents_url_dropoff,0))
             # print(logi)
         elif i[-1]==1 and i[-2]==0: # pickup needs event
             # print('pickup needs event')
@@ -169,9 +171,11 @@ def mainsiteops():
             logi = [l for l in logistics if l[0]==dts and l[4]==rid][0]
             if type(logi[-1])==type(None):
                 pickup_time=logi[3] # show timeslots
+                activate_makecalevents_url_pickup=0
             else:
                 pickup_time=logi[-1]
-            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','',pickup_time,str(logi[5])+' '+logi[6]+' '+logi[7]+' '+logi[8],logi[1]))
+                activate_makecalevents_url_pickup=1
+            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','',pickup_time,str(logi[5])+' '+logi[6]+' '+logi[7]+' '+logi[8],logi[1],0,activate_makecalevents_url_pickup))
             # print(logi)
         elif i[-2]==1 and i[-1]==1: # both needs events
             # print('both need event')
@@ -182,16 +186,20 @@ def mainsiteops():
             logi_p = [l for l in logistics if l[0]==dts_p and l[4]==rid][0]
             if type(logi_d[-1])==type(None):
                 dropoff_time=logi_d[3]
+                activate_makecalevents_url_dropoff=0
             else:
                 dropoff_time=logi_d[-1]
+                activate_makecalevents_url_dropoff=1
             if type(logi_p[-1])==type(None):
                 pickup_time=logi_p[3]
+                activate_makecalevents_url_pickup=0
             else:
                 pickup_time=logi_p[-1]
-            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],dropoff_time,str(logi_d[5])+' '+logi_d[6]+' '+logi_d[7]+' '+logi_d[8],logi_d[1],pickup_time,str(logi_p[5])+' '+logi_p[6]+' '+logi_p[7]+' '+logi_p[8],logi_p[1]))
+                activate_makecalevents_url_pickup=1
+            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],dropoff_time,str(logi_d[5])+' '+logi_d[6]+' '+logi_d[7]+' '+logi_d[8],logi_d[1],pickup_time,str(logi_p[5])+' '+logi_p[6]+' '+logi_p[7]+' '+logi_p[8],logi_p[1], activate_makecalevents_url_dropoff,activate_makecalevents_url_pickup))
         else: # neither needs event
             # print('else')
-            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','','','',''))
+            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','','','','',0,0))
 
     # check for extensions and prepend appropriate pickup dates to pickup datetime column
     cur.execute("select * from extensions")
@@ -214,7 +222,7 @@ def mainsiteops():
     # list to store calendar info: dropoff/pickup type, renter name, rental start (for dropoff), rental end (for pickup), chosen time, items, total due/deposit return, task id from ops (id=order id), renter address, renter phone, renter payment
     # add it to session so makecalevents can access https://stackoverflow.com/questions/27611216/how-to-pass-a-variable-between-flask-pages
 
-    return render_template('index.html', rows=rows, logi_li=logi_li, ext_li=ext_li)
+    return render_template('index.html', rows=rows, logi_li=logi_li, ext_li=ext_li) #, activate_makecalevents_url=activate_makecalevents_url)
             # # return render_template("index.html")
     # return render_template("key.html")
 
