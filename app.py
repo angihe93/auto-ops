@@ -628,8 +628,9 @@ def calendar():
         print("exception when accessing events in mainsiteops")
         return "please login with valid email"
 
-    month_dict = {'01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun',
-                  '07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec'}
+    month_dict = {'01':['Jan',31],'02':['Feb',28],'03':['Mar',31],'04':['Apr',30],'05':['May',31],'06':['Jun',30],
+                  '07':['Jul',31],'08':['Aug',31],'09':['Sep',30],'10':['Oct',31],'11':['Nov',30],'12':['Dec',31]}
+
     zipcode_dict=defaultdict(lambda:"other")
     zipcode_dict['10027']='CU'
     zipcode_dict['10025']='CU'
@@ -659,6 +660,7 @@ def calendar():
     print("dropoff_rows")
     print(dropoff_rows)
     print("\n\n\n")
+
 
     cur.execute("""
         select orders.id, cast(orders.res_date_end as varchar),
@@ -697,6 +699,39 @@ def calendar():
     print("pickup rows after extension check:")
     print(pickup_rows)
 
+    ### rentals that end before 8/1 but have extensions that end after 8/1 ###
+    # new query, change where to res_date_end<'2022-08-01' and extensions.res_date_end>'2022-08-01'
+    cur.execute("""
+        select orders.id, subquery.res_date_end,
+        '(' || items.id || ') ' || items.name, users.email,
+        users.address_zip, logistics.address_zip, coalesce(cast(logistics.timeslots as varchar),''), coalesce(cast(logistics.chosen_time as varchar),''),
+        'pickup'
+        from
+        orders inner join
+            (select extensions.order_id, cast(max(extensions.res_date_end) as varchar) as res_date_end
+            from orders
+            inner join extensions on orders.id=extensions.order_id
+            where orders.res_date_end<'2022-08-01' and cast(extensions.res_date_end as varchar) > '2022-08-01'
+            group by extensions.order_id) as subquery
+        on orders.id=subquery.order_id
+        inner join items on items.id=orders.item_id
+        inner join users on users.id=orders.renter_id
+        left join order_pickups on orders.id=order_pickups.order_id
+        left join logistics on logistics.dt_sched=order_pickups.dt_sched
+        order by res_date_end,email
+    """)
+    pickup_rows_ext=cur.fetchall()
+    pickup_rows_ext = [list(i) for i in pickup_rows_ext]
+    print("pickup_rows_ext")
+    print(pickup_rows_ext)
+    print("\n\n\n")
+
+    pickup_rows.extend(pickup_rows_ext)
+
+    print("pickup rows after extension check and adding pickup_rows_ext:")
+    print(pickup_rows)
+    print("\n\n\n")
+
     # make table starting august
     # for each month, first row is month name, next row is days (sun-sat), then it's dates and logistics data alternating
     # while there are logistics events: while current date < last logistics event on file
@@ -707,7 +742,7 @@ def calendar():
         </style>
         <table>
           <tr>
-            <th>Aug</th>
+            <th>Aug 2022</th>
             <th> </th>
             <th> </th>
             <th> </th>
@@ -731,29 +766,29 @@ def calendar():
     i=1
     length=len(all_events)
     while i<length:
-        print('i',i)
-        print('prev email',prev_email)
-        print('prev type',prev_type)
-        print('prev_day',prev_day)
-        print('current email',all_events[i][3])
-        print('current type',all_events[i][-1])
-        print('current item',all_events[i][2])
+        # print('i',i)
+        # print('prev email',prev_email)
+        # print('prev type',prev_type)
+        # print('prev_day',prev_day)
+        # print('current email',all_events[i][3])
+        # print('current type',all_events[i][-1])
+        # print('current item',all_events[i][2])
         # length=len(all_events) #??
         if all_events[i][3]==prev_email and all_events[i][-1]==prev_type and all_events[i][1]==prev_day:
-            print('email, task type, and date = last one')
+            # print('email, task type, and date = last one')
             prev_email=all_events[i][3]
             prev_type=all_events[i][-1]
             prev_day=all_events[i][1]
             all_events[i-1][2]+=', '+all_events[i][2] # append current item
             del all_events[i]
         elif all_events[i][3]!=prev_email or all_events[i][-1]!=prev_type or all_events[i][1]!=prev_day:
-            print('email, task type, or date != last one')
+            # print('email, task type, or date != last one')
             prev_email=all_events[i][3]
             prev_type=all_events[i][-1]
             prev_day=all_events[i][1]
             i+=1
         length=len(all_events) #??
-        print('new length',length)
+        # print('new length',length)
         # prev_email=all_events[i][3]
         # prev_type=all_events[i][-1]
         # i+=1
@@ -766,6 +801,9 @@ def calendar():
     # print('upcoming_dates',upcoming_dates)
     curr_year = '2022'
     curr_month = '08'
+    curr_mo_index = 7
+    months = ['01','02','03','04','05','06','07','08','09','10','11','12']
+    years = ['2022','2023','2024','2025']
     # while i<=31:
     ## generate rows of dates of size 7, iterate through each row, add event data as needed
     date_rows=[[' ','1','2','3','4','5','6']]
@@ -805,57 +843,176 @@ def calendar():
 
     """
     # <table>
-
-    # go through date_rows, add corresponding events
-    event_rows=[]
-    # for d in date_rows:
-    #     curr_event_row=[]
-    curr_mo_date_events_dict=dict(filter(lambda i:i[0][5:7]==curr_month and i[0][:4]==curr_year,date_events_dict.items()))
+    ######## new  ########
     print("\n\n\n")
-    print("curr_mo_date_events_dict")
-    print(curr_mo_date_events_dict)
-        # if d[]
-    for d in date_rows: # day without leading 0
-        print('d',d)
-        html+="<tr>"
-        for i in d:
-            html+="<th>"+str(i)+"</th>"
-        html+="</tr>"
-        curr_event_row=[]
-        html+="<tr>"
-        for date in d:
-            curr_date=curr_year+'-'+curr_month+'-'+str(date) if len(str(date))==2 else curr_year+'-'+curr_month+'-0'+str(date)
-            print('curr_date',curr_date)
-            try:
-                event_data="<td>"
-                curr_date_events_sorted=sorted(curr_mo_date_events_dict[curr_date], key=lambda x: (x[7],x[6])) # sort events in a day by chosen time, then timeslots
-                for i in curr_date_events_sorted: # for each event in curr_date
-                    print('i',i)
-                    event_data_time = i[7] # if chosen time exists, use that, else use timeslots
-                    if event_data_time=="":
-                        event_data_time=i[6]
-                    event_data_zipcode=i[5]
-                    if not event_data_zipcode: # if zipcode in logistics form exists, use that, else use zipcode in account
-                        event_data_zipcode=i[4]
-                    event_data_location = zipcode_dict[event_data_zipcode]
-                    event_data+=i[-1]+", "+event_data_location+", "+event_data_time+": "+i[2]+"<br>"
-                event_data+="</td>"
-                print('event_data in try:',event_data)
+    # remove each event entry after its added to html
+    # while date_events_dict: # while there are entries in date_events_dict
+    # while curr_mo_index < len(months) :
+    while date_events_dict:
+        event_rows=[]
+        curr_month = months[curr_mo_index]
+        print('curr_month',curr_month)
+        curr_mo_date_events_dict=dict(filter(lambda i:i[0][5:7]==curr_month and i[0][:4]==curr_year,date_events_dict.items()))
 
-                html+=event_data
-                # html+="<td>"+str(curr_mo_date_events_dict[curr_date])+"</td>"
-                # curr_event_row.append(curr_mo_date_events_dict[curr_date])
-            except Exception as e:
-                print(e)
-                # print('except')
-                html+="<td></td>"
-                # curr_event_row.append([])
-            print('curr_event_row',curr_event_row)
-        html+="</tr>"
-        event_rows.append(curr_event_row)
-        print('event_rows',event_rows)
-        print("\n")
+        #### generate date_rows ####
+        if curr_month=='08' and curr_year=='2022': # use the pregenerated one
+            date_rows=date_rows
+        else:
+            html+="""
+            <tr>
+            <td> </td>
+            </tr>
+            <tr>
+              <th>%s</th>
+              <th> </th>
+              <th> </th>
+              <th> </th>
+              <th> </th>
+              <th> </th>
+              <th> </th>
+            </tr>
+            """%(month_dict[curr_month][0]+" "+curr_year)
+            html+="""
+                <tr>
+                  <th>Sun</th>
+                  <th>Mon</th>
+                  <th>Tue</th>
+                  <th>Wed</th>
+                  <th>Thu</th>
+                  <th>Fri</th>
+                  <th>Sat</th>
+                </tr>
+            """
+            # see previous date_rows to see where 01 should start
+            max_day=month_dict[curr_month][1]
+            print('max day',max_day)
+            start_position=len([i for i in date_rows[-1] if i!=' '])
+            # generate first line
+            if start_position==7:
+                start_position=0
+                date_rows=[[]]
+            else:
+                date_rows=[[' ']*start_position]
+            date_rows[0].extend([*range(1,7-start_position+1)])
+            print('first row of date_rows',date_rows)
+            # generate the rest
+            i=int(date_rows[0][-1])+1 # value to start with for next row
+            print('i,value to start with for next row',i)
+            while i<=max_day:
+                date_rows.append([*range(i,min(max_day+1,i+7))])
+                i+=7
+            # for last entry in date_rows, count how many there are, append empties as needed
+            if len(date_rows[-1])<7:
+                date_rows[-1].extend([' ']*(7-len(date_rows[-1])))
+            print(date_rows)
 
+        for d in date_rows:
+            html+="<tr>"
+            for i in d:
+                html+="<th>"+str(i)+"</th>"
+            html+="</tr>"
+            curr_event_row=[]
+            html+="<tr>"
+            for date in d:
+                curr_date=curr_year+'-'+curr_month+'-'+str(date) if len(str(date))==2 else curr_year+'-'+curr_month+'-0'+str(date)
+                # print('curr_date',curr_date)
+                try:
+                    event_data="<td>"
+                    curr_date_events_sorted=sorted(curr_mo_date_events_dict[curr_date], key=lambda x: (x[7],x[6])) # sort events in a day by chosen time, then timeslots
+                    for i in curr_date_events_sorted: # for each event in curr_date
+                        # print('i',i)
+                        event_data_time = i[7] # if chosen time exists, use that, else use timeslots
+                        if event_data_time=="":
+                            event_data_time=i[6]
+                        event_data_zipcode=i[5]
+                        if not event_data_zipcode: # if zipcode in logistics form exists, use that, else use zipcode in account
+                            event_data_zipcode=i[4]
+                        event_data_location = zipcode_dict[event_data_zipcode]
+                        event_data+=i[-1]+", "+event_data_location+", "+event_data_time+": "+i[2]+"<br>"
+
+                    event_data+="</td>"
+                    # print('event_data in try:',event_data)
+
+                    html+=event_data
+                    print('date_events_dict date entry to delete:',date_events_dict[curr_date])
+                    del date_events_dict[curr_date]
+                    print('date_events_dict after deletion:')
+                    print(date_events_dict)
+                    # html+="<td>"+str(curr_mo_date_events_dict[curr_date])+"</td>"
+                    # curr_event_row.append(curr_mo_date_events_dict[curr_date])
+                except Exception as e:
+                    # print(e)
+                    # print('except')
+                    html+="<td></td>"
+                    # curr_event_row.append([])
+                # print('curr_event_row',curr_event_row)
+                # del date_events_dict[date]
+            html+="</tr>"
+            event_rows.append(curr_event_row)
+            print('event_rows',event_rows)
+            print("\n")
+
+
+        if curr_mo_index==len(months)-1: # at last month, or months[11]='12'
+            curr_mo_index=0 # reset to months[0]
+            curr_year = str(int(curr_year)+1)
+        else:
+            curr_mo_index+=1
+
+    ######## end of new ########
+
+    #### old ####
+    # # go through date_rows, add corresponding events
+    # event_rows=[]
+    # # for d in date_rows:
+    # #     curr_event_row=[]
+    # curr_mo_date_events_dict=dict(filter(lambda i:i[0][5:7]==curr_month and i[0][:4]==curr_year,date_events_dict.items()))
+    # print("\n\n\n")
+    # print("curr_mo_date_events_dict")
+    # print(curr_mo_date_events_dict)
+    #     # if d[]
+    # for d in date_rows: # day without leading 0
+    #     # print('d',d)
+    #     html+="<tr>"
+    #     for i in d:
+    #         html+="<th>"+str(i)+"</th>"
+    #     html+="</tr>"
+    #     curr_event_row=[]
+    #     html+="<tr>"
+    #     for date in d:
+    #         curr_date=curr_year+'-'+curr_month+'-'+str(date) if len(str(date))==2 else curr_year+'-'+curr_month+'-0'+str(date)
+    #         # print('curr_date',curr_date)
+    #         try:
+    #             event_data="<td>"
+    #             curr_date_events_sorted=sorted(curr_mo_date_events_dict[curr_date], key=lambda x: (x[7],x[6])) # sort events in a day by chosen time, then timeslots
+    #             for i in curr_date_events_sorted: # for each event in curr_date
+    #                 # print('i',i)
+    #                 event_data_time = i[7] # if chosen time exists, use that, else use timeslots
+    #                 if event_data_time=="":
+    #                     event_data_time=i[6]
+    #                 event_data_zipcode=i[5]
+    #                 if not event_data_zipcode: # if zipcode in logistics form exists, use that, else use zipcode in account
+    #                     event_data_zipcode=i[4]
+    #                 event_data_location = zipcode_dict[event_data_zipcode]
+    #                 event_data+=i[-1]+", "+event_data_location+", "+event_data_time+": "+i[2]+"<br>"
+    #             event_data+="</td>"
+    #             # print('event_data in try:',event_data)
+    #
+    #             html+=event_data
+    #             # html+="<td>"+str(curr_mo_date_events_dict[curr_date])+"</td>"
+    #             # curr_event_row.append(curr_mo_date_events_dict[curr_date])
+    #         except Exception as e:
+    #             # print(e)
+    #             # print('except')
+    #             html+="<td></td>"
+    #             # curr_event_row.append([])
+    #         # print('curr_event_row',curr_event_row)
+    #     html+="</tr>"
+    #     event_rows.append(curr_event_row)
+    #     print('event_rows',event_rows)
+    #     print("\n")
+
+    #### old ####
 
     html+="</table>"
     # print()
