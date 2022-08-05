@@ -109,6 +109,28 @@ def mainsiteops():
     rows = cur.fetchall()
     print('rows:',rows[-5:])
     # res date start, res date end, order id, renter id, order_dropoffs dt_sched, order_pickups dt_sched, 1 if dropoff needs event, 1 if pickup needs event
+    # rows to main site ops columns mapping
+    # i[0]: rental start
+    # i[1]: customer name
+    # i[2]: customer email
+    # i[3]: customer phone
+    # i[4]: customer location
+    # i[5]: sub price
+    # i[6]: deposit
+    # i[7]: tax
+    # i[8]: item id and name
+    # i[9]: res date end
+    # i[10]: is extended
+    # i[11]: item link
+    # i[12]: payment
+    # i[13]: order id
+    # i[14]: renter id
+    # i[15]: order_dropoffs.dt_sched
+    # i[16]: order_dropoffs.dt_completed
+    # i[17]: order_pickups.dt_sched
+    # i[18]: order_pickups.dt_completed
+    # i[19]: reservations.dt_created
+
     event_li = []
     for i in rows:
         if type(i[15])!=type(None) and type(i[16])==type(None) and type(i[17])!=type(None) and type(i[18])==type(None): # both dropoff and pickup needs events
@@ -133,14 +155,23 @@ def mainsiteops():
             dts = i[4]
             rid = i[3]
             logi = [l for l in logistics if l[0]==dts and l[4]==rid][0]
-            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],logi[-1],str(logi[5])+' '+logi[6]+', '+logi[7]+', NY '+logi[8],logi[1],'','',''))
+            #### if logi[-1] ie. chosen time is null, then append timeslots instead, and change link to the task id ###
+            if type(logi[-1])==type(None):
+                dropoff_time=logi[3] # show timeslots
+            else:
+                dropoff_time=logi[-1]
+            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],dropoff_time,str(logi[5])+' '+logi[6]+', '+logi[7]+', NY '+logi[8],logi[1],'','',''))
             # print(logi)
         elif i[-1]==1 and i[-2]==0: # pickup needs event
             # print('pickup needs event')
             dts = i[5]
             rid = i[3]
             logi = [l for l in logistics if l[0]==dts and l[4]==rid][0]
-            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','',logi[-1],str(logi[5])+' '+logi[6]+' '+logi[7]+' '+logi[8],logi[1]))
+            if type(logi[-1])==type(None):
+                pickup_time=logi[3] # show timeslots
+            else:
+                pickup_time=logi[-1]
+            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','',pickup_time,str(logi[5])+' '+logi[6]+' '+logi[7]+' '+logi[8],logi[1]))
             # print(logi)
         elif i[-2]==1 and i[-1]==1: # both needs events
             # print('both need event')
@@ -149,7 +180,15 @@ def mainsiteops():
             rid = i[3]
             logi_d = [l for l in logistics if l[0]==dts_d and l[4]==rid][0]
             logi_p = [l for l in logistics if l[0]==dts_p and l[4]==rid][0]
-            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],logi_d[-1],str(logi_d[5])+' '+logi_d[6]+' '+logi_d[7]+' '+logi_d[8],logi_d[1],logi_p[-1],str(logi_p[5])+' '+logi_p[6]+' '+logi_p[7]+' '+logi_p[8],logi_p[1]))
+            if type(logi_d[-1])==type(None):
+                dropoff_time=logi_d[3]
+            else:
+                dropoff_time=logi_d[-1]
+            if type(logi_p[-1])==type(None):
+                pickup_time=logi_p[3]
+            else:
+                pickup_time=logi_p[-1]
+            logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],dropoff_time,str(logi_d[5])+' '+logi_d[6]+' '+logi_d[7]+' '+logi_d[8],logi_d[1],pickup_time,str(logi_p[5])+' '+logi_p[6]+' '+logi_p[7]+' '+logi_p[8],logi_p[1]))
         else: # neither needs event
             # print('else')
             logi_li.append((i[0],i[1],i[2],i[3],i[6],i[7],'','','','','',''))
