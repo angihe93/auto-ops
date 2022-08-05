@@ -104,7 +104,7 @@ def mainsiteops():
                 inner join profiles on profiles.id=users.id
                 left join order_dropoffs on orders.id=order_dropoffs.order_id
                 left join order_pickups on orders.id=order_pickups.order_id
-                order by orders.res_date_start, reservations.dt_created''')
+                order by orders.res_date_start, users.email, reservations.dt_created''')
 
     rows = cur.fetchall()
     print('rows:',rows[-5:])
