@@ -9,10 +9,12 @@
     <title></title>
   </head>
   <body>
+    <a href="{{ url_for('calendar') }}">Calendar view</a>
     <h3><mark>site updates:</mark></h3>
     <ul>
       <li>orders are now grouped so that each user's orders with the same rental start date are together, regardless of whether the orders were placed at separate times</li>
       <li>dropoff and pickup times now show user's availability timeslots or the precise chosen time with link to make the google calendar events. empty means dropoff/pickup is completed or user has not submitted availability</li>
+      <li>work-in-progress calendar view can be accessed <a href="{{ url_for('calendar') }}">here</a></li>
     </ul>
 
     <table>

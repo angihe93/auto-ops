@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, redirect
 # from flask_login import UserMixin, LoginManager
 import flask
 # import jwt, time, random
+from collections import defaultdict
 import bcrypt
 import datetime
 import pytz
@@ -602,6 +603,268 @@ def clear_credentials():
         print('flask.session',flask.session)
     return ('Credentials have been cleared.<br><br>') # +
         # print_index_table())
+
+@app.route('/calendar')
+def calendar():
+    if 'credentials' not in flask.session:
+        return flask.redirect('authorize')
+
+    # Load credentials from the session.
+    credentials = google.oauth2.credentials.Credentials(
+      **flask.session['credentials'])
+    print('credentials loaded from session')
+
+    try:
+        service = googleapiclient.discovery.build('calendar', 'v3', credentials=credentials)
+        print('service built')
+        now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
+        events_result = service.events().list(calendarId='c_oclhvroroorb3fva3a85tqd2rc@group.calendar.google.com', timeMin=now,
+                                              maxResults=10, singleEvents=True,
+                                              orderBy='startTime').execute()
+        print('events_result',events_result)
+        # return flask.redirect('mainsiteops')
+        # events = events_result.get('items', [])
+    except:
+        print("exception when accessing events in mainsiteops")
+        return "please login with valid email"
+
+    month_dict = {'01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun',
+                  '07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec'}
+    zipcode_dict=defaultdict(lambda:"other")
+    zipcode_dict['10027']='CU'
+    zipcode_dict['10025']='CU'
+    zipcode_dict['10012']='NYU'
+    zipcode_dict['10003']='NYU'
+    zipcode_dict['10014']='NYU'
+    zipcode_dict['10011']='NYU'
+    # zipcode_dict = {'10027':'CU','10025':'CU'}
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        select orders.id, cast(orders.res_date_start as varchar),
+        '(' || items.id || ') ' || items.name, users.email,
+        users.address_zip, logistics.address_zip, coalesce(cast(logistics.timeslots as varchar),''), coalesce(cast(logistics.chosen_time as varchar),''),
+        'dropoff'
+        from orders
+        inner join items on items.id=orders.item_id
+        inner join users on users.id=orders.renter_id
+        left join order_dropoffs on orders.id=order_dropoffs.order_id
+        left join logistics on logistics.dt_sched=order_dropoffs.dt_sched
+        where res_date_start>'2022-08-01'
+        order by res_date_start,email
+    """)
+    dropoff_rows=cur.fetchall()
+    dropoff_rows = [list(i) for i in dropoff_rows]
+    print("dropoff_rows")
+    print(dropoff_rows)
+    print("\n\n\n")
+
+    cur.execute("""
+        select orders.id, cast(orders.res_date_end as varchar),
+        '(' || items.id || ') ' || items.name, users.email,
+        users.address_zip, logistics.address_zip, coalesce(cast(logistics.timeslots as varchar),''), coalesce(cast(logistics.chosen_time as varchar),''),
+        'pickup'
+        from orders
+        inner join items on items.id=orders.item_id
+        inner join users on users.id=orders.renter_id
+        left join order_pickups on orders.id=order_pickups.order_id
+        left join logistics on logistics.dt_sched=order_pickups.dt_sched
+        where res_date_end>'2022-08-01'
+        order by res_date_end,email
+    """)
+    pickup_rows=cur.fetchall()
+    pickup_rows = [list(i) for i in pickup_rows]
+    print("pickup_rows")
+    print(pickup_rows)
+    print("\n\n\n")
+    # check for extensions
+
+    cur.execute("select extensions.order_id, cast(extensions.res_date_start as varchar), cast(extensions.res_date_end as varchar) from extensions")
+    extensions=cur.fetchall()
+    # ext_li=[] # holds the date that go in pickup datetime
+    for i in pickup_rows:
+        # if order number is in extensions, add extension values, else, add none
+        e = [e[2] for e in extensions if e[0]==i[0]]
+        if len(e)>0:
+            # if multiple extensions on same item/order, multiple rows in extensions with same order id but res dates are changed
+            # sort e by res_date_end, take the latest res_date_end
+            e.sort()
+            # ext_li.append(e[-1])
+            i[1]=e[-1]
+        # else:
+        #     ext_li.append(i[3])
+    print("pickup rows after extension check:")
+    print(pickup_rows)
+
+    # make table starting august
+    # for each month, first row is month name, next row is days (sun-sat), then it's dates and logistics data alternating
+    # while there are logistics events: while current date < last logistics event on file
+    html="""
+        <style type="text/css">
+          body {
+            font-family: calibri;}
+        </style>
+        <table>
+          <tr>
+            <th>Aug</th>
+            <th> </th>
+            <th> </th>
+            <th> </th>
+            <th> </th>
+            <th> </th>
+            <th> </th>
+          </tr>
+         """
+    all_events=dropoff_rows
+    all_events.extend(pickup_rows)
+    all_events=sorted(all_events, key=lambda x: (x[1],x[3],x[7],x[6])) # sort by date, email, time chosen, timeslots, empty times are first, then ascending
+    print("\n\n\n")
+    print("all_events")
+    print(all_events)
+
+    # make pandas df, order by date, combine orders for the same user of same type on same day (at same time?)
+    # or do that without pandas? in a for loop, then sort list https://stackoverflow.com/questions/36955553/sorting-list-of-lists-by-the-first-element-of-each-sub-list
+    prev_email=all_events[0][3]
+    prev_type=all_events[0][-1]
+    prev_day=all_events[0][1]
+    i=1
+    length=len(all_events)
+    while i<length:
+        print('i',i)
+        print('prev email',prev_email)
+        print('prev type',prev_type)
+        print('prev_day',prev_day)
+        print('current email',all_events[i][3])
+        print('current type',all_events[i][-1])
+        print('current item',all_events[i][2])
+        # length=len(all_events) #??
+        if all_events[i][3]==prev_email and all_events[i][-1]==prev_type and all_events[i][1]==prev_day:
+            print('email, task type, and date = last one')
+            prev_email=all_events[i][3]
+            prev_type=all_events[i][-1]
+            prev_day=all_events[i][1]
+            all_events[i-1][2]+=', '+all_events[i][2] # append current item
+            del all_events[i]
+        elif all_events[i][3]!=prev_email or all_events[i][-1]!=prev_type or all_events[i][1]!=prev_day:
+            print('email, task type, or date != last one')
+            prev_email=all_events[i][3]
+            prev_type=all_events[i][-1]
+            prev_day=all_events[i][1]
+            i+=1
+        length=len(all_events) #??
+        print('new length',length)
+        # prev_email=all_events[i][3]
+        # prev_type=all_events[i][-1]
+        # i+=1
+    print("\n\n\n")
+    print("all_events_after mod:")
+    print(all_events)
+
+    # iterate through all upcoming dates, for each date output the events with that date
+    upcoming_dates=sorted(list(set([i[1] for i in all_events])))
+    # print('upcoming_dates',upcoming_dates)
+    curr_year = '2022'
+    curr_month = '08'
+    # while i<=31:
+    ## generate rows of dates of size 7, iterate through each row, add event data as needed
+    date_rows=[[' ','1','2','3','4','5','6']]
+    i=7
+    while i<=31:
+        date_rows.append([*range(i,min(31+1,i+7))])
+        i+=7
+    # for last entry in date_rows, count how many there are, append empties as needed
+    if len(date_rows[-1])<7:
+        date_rows[-1].extend([' ']*(7-len(date_rows[-1])))
+    print(date_rows)
+
+    # make dictionary of date:events ?
+    # iterate through date_rows, add corresponding events to each day?
+    # date_events_dict shows a list of lists for each date
+    date_events_dict=defaultdict(lambda:[])
+    for e in all_events:
+        event_date=e[1]
+        try:# if date exists
+            date_events_dict[event_date].append(e)
+        except:
+            date_events_dict[event_date]=e
+    print("\n\n\n")
+    print('date_events_dict')
+    print(date_events_dict)
+
+    html+="""
+        <tr>
+          <th>Sun</th>
+          <th>Mon</th>
+          <th>Tue</th>
+          <th>Wed</th>
+          <th>Thu</th>
+          <th>Fri</th>
+          <th>Sat</th>
+        </tr>
+
+    """
+    # <table>
+
+    # go through date_rows, add corresponding events
+    event_rows=[]
+    # for d in date_rows:
+    #     curr_event_row=[]
+    curr_mo_date_events_dict=dict(filter(lambda i:i[0][5:7]==curr_month and i[0][:4]==curr_year,date_events_dict.items()))
+    print("\n\n\n")
+    print("curr_mo_date_events_dict")
+    print(curr_mo_date_events_dict)
+        # if d[]
+    for d in date_rows: # day without leading 0
+        print('d',d)
+        html+="<tr>"
+        for i in d:
+            html+="<th>"+str(i)+"</th>"
+        html+="</tr>"
+        curr_event_row=[]
+        html+="<tr>"
+        for date in d:
+            curr_date=curr_year+'-'+curr_month+'-'+str(date) if len(str(date))==2 else curr_year+'-'+curr_month+'-0'+str(date)
+            print('curr_date',curr_date)
+            try:
+                event_data="<td>"
+                curr_date_events_sorted=sorted(curr_mo_date_events_dict[curr_date], key=lambda x: (x[7],x[6])) # sort events in a day by chosen time, then timeslots
+                for i in curr_date_events_sorted: # for each event in curr_date
+                    print('i',i)
+                    event_data_time = i[7] # if chosen time exists, use that, else use timeslots
+                    if event_data_time=="":
+                        event_data_time=i[6]
+                    event_data_zipcode=i[5]
+                    if not event_data_zipcode: # if zipcode in logistics form exists, use that, else use zipcode in account
+                        event_data_zipcode=i[4]
+                    event_data_location = zipcode_dict[event_data_zipcode]
+                    event_data+=i[-1]+", "+event_data_location+", "+event_data_time+": "+i[2]+"<br>"
+                event_data+="</td>"
+                print('event_data in try:',event_data)
+
+                html+=event_data
+                # html+="<td>"+str(curr_mo_date_events_dict[curr_date])+"</td>"
+                # curr_event_row.append(curr_mo_date_events_dict[curr_date])
+            except Exception as e:
+                print(e)
+                # print('except')
+                html+="<td></td>"
+                # curr_event_row.append([])
+            print('curr_event_row',curr_event_row)
+        html+="</tr>"
+        event_rows.append(curr_event_row)
+        print('event_rows',event_rows)
+        print("\n")
+
+
+    html+="</table>"
+    # print()
+
+    # if date is in current month, proceed to add date numbers and corresponding events on each date
+    # if date is in next month, add month header, then sat-sun row, then add date numbers and corresponding events
+
+    return html
+    # return(render_template('calendar.html'))
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=8080, debug=True, ssl_context='adhoc')
