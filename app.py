@@ -609,7 +609,7 @@ def clear_credentials():
         del flask.session['credentials']
         del flask.session['state']
         print('flask.session',flask.session)
-    return ('Credentials have been cleared.<br><br> <a href="login">authorize</a>') # +
+    return ('Credentials have been cleared.<br><br> <a href="authorize">login</a>') # +
         # print_index_table())
 
 @app.route('/calendar')
