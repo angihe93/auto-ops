@@ -944,7 +944,7 @@ def calendar():
                         if not event_data_zipcode: # if zipcode in logistics form exists, use that, else use zipcode in account
                             event_data_zipcode=i[4]
                         event_data_location = zipcode_dict[event_data_zipcode]
-                        event_data+=i[-1]+", "+event_data_location+", "+event_data_time+": "+i[2]+"<br>"
+                        event_data+="<b>"+i[-1]+", "+event_data_location+", "+event_data_time+":</b> "+i[2]+"<br>"
 
                     event_data+="</td>"
                     # print('event_data in try:',event_data)
