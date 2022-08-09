@@ -6,4 +6,5 @@ templates/makecalevents.html
 templates/key.html
 google-credentials.json
 token.json
+.env
 app2.py
