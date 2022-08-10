@@ -46,11 +46,11 @@ def index():
     # Load credentials from the session.
     credentials = google.oauth2.credentials.Credentials(
       **flask.session['credentials'])
-    print('credentials loaded from session')
+    # print('credentials loaded from session')
 
     # try:
     service = googleapiclient.discovery.build('calendar', 'v3', credentials=credentials)
-    print('service built')
+    # print('service built')
 
     # Call the Calendar API
     now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
@@ -59,11 +59,11 @@ def index():
         events_result = service.events().list(calendarId='c_oclhvroroorb3fva3a85tqd2rc@group.calendar.google.com', timeMin=now,
                                               maxResults=10, singleEvents=True,
                                               orderBy='startTime').execute()
-        print('events_result',events_result)
+        # print('events_result',events_result)
         return flask.redirect('mainsiteops')
         # events = events_result.get('items', [])
     except:
-        print("exception when accessing events in index()")
+        # print("exception when accessing events in index()")
         # return "please login with valid email"
         return """
         please login with valid email<br>
@@ -78,20 +78,20 @@ def mainsiteops():
     # Load credentials from the session.
     credentials = google.oauth2.credentials.Credentials(
       **flask.session['credentials'])
-    print('credentials loaded from session')
+    # print('credentials loaded from session')
 
     try:
         service = googleapiclient.discovery.build('calendar', 'v3', credentials=credentials)
-        print('service built')
+        # print('service built')
         now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
         events_result = service.events().list(calendarId='c_oclhvroroorb3fva3a85tqd2rc@group.calendar.google.com', timeMin=now,
                                               maxResults=10, singleEvents=True,
                                               orderBy='startTime').execute()
-        print('events_result',events_result)
+        # print('events_result',events_result)
         # return flask.redirect('mainsiteops')
         # events = events_result.get('items', [])
     except:
-        print("exception when accessing events in mainsiteops")
+        # print("exception when accessing events in mainsiteops")
         # return "please login with valid email"
         return """
         please login with valid email<br>
@@ -116,7 +116,7 @@ def mainsiteops():
                 order by orders.res_date_start, users.email, reservations.dt_created''')
 
     rows = cur.fetchall()
-    print('rows:',rows[-5:])
+    # print('rows:',rows[-5:])
     # res date start, res date end, order id, renter id, order_dropoffs dt_sched, order_pickups dt_sched, 1 if dropoff needs event, 1 if pickup needs event
     # rows to main site ops columns mapping
     # i[0]: rental start
@@ -236,76 +236,6 @@ def mainsiteops():
     # return render_template("key.html")
 
 
-# @app.route('/test')
-# def test_api_request():
-#     if 'credentials' not in flask.session:
-#         return flask.redirect('authorize')
-#
-#     # Load credentials from the session.
-#     credentials = google.oauth2.credentials.Credentials(
-#       **flask.session['credentials'])
-#     print('credentials loaded from session')
-#
-#     # try:
-#     service = googleapiclient.discovery.build('calendar', 'v3', credentials=credentials)
-#     print('service built')
-#
-#     # Call the Calendar API
-#     now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
-#
-#     event = {
-#       'summary': 'Google I/O 2021',
-#       'location': '800 Howard St., San Francisco, CA 94103',
-#       'description': 'A chance to hear more about Google\'s developer products.',
-#       'start': {
-#         'dateTime': '2022-07-13T09:00:00-07:00',
-#         'timeZone': 'America/Los_Angeles',
-#       },
-#       'end': {
-#         'dateTime': '2022-07-28T17:00:00-07:00',
-#         'timeZone': 'America/Los_Angeles',
-#       },
-#       'recurrence': [
-#         'RRULE:FREQ=DAILY;COUNT=2'
-#       ],
-#       'attendees': [
-#         {'email': 'lpage@example.com'},
-#         {'email': 'sbrin@example.com'},
-#       ],
-#       'reminders': {
-#         'useDefault': False,
-#         'overrides': [
-#           {'method': 'email', 'minutes': 24 * 60},
-#           {'method': 'popup', 'minutes': 10},
-#         ],
-#       },
-#     }
-#
-#     event = service.events().insert(calendarId='ah3354@columbia.edu', body=event).execute()
-#     print('Event created: %s' % (event.get('htmlLink')))
-#
-#     return event.get('htmlLink')
-#
-#     # except: # HttpError as error:
-#     #     print('An error occurred: %s') # % error)
-#     #     return "error"
-
-    # def credentials_to_dict(credentials):
-    #     return {'token': credentials.token,
-    #             'refresh_token': credentials.refresh_token,
-    #             'token_uri': credentials.token_uri,
-    #             'client_id': credentials.client_id,
-    #             'client_secret': credentials.client_secret,
-    #             'scopes': credentials.scopes,
-    #             'id_token': credentials.id_token}
-    # # Save credentials back to session in case access token was refreshed.
-    # # ACTION ITEM: In a production app, you likely want to save these
-    # #              credentials in a persistent database instead.
-    # flask.session['credentials'] = credentials_to_dict(credentials)
-    #
-    #
-    # # return flask.jsonify(**files)
-
 @app.route('/authorize')
 def authorize():
     SCOPES = ['https://www.googleapis.com/auth/calendar']
@@ -329,7 +259,7 @@ def authorize():
 
     # Store the state so the callback can verify the auth server response.
     flask.session['state'] = state
-    print('in authorize: flask.session',flask.session)
+    # print('in authorize: flask.session',flask.session)
 
     return flask.redirect(authorization_url)
 
@@ -338,7 +268,7 @@ def authorize():
 def oauth2callback():
     # Specify the state when creating the flow in the callback so that it can
     # verified in the authorization server response.
-    print('in oauth2callback: flask.session',flask.session)
+    # print('in oauth2callback: flask.session',flask.session)
     state = flask.session['state']
     SCOPES = ['https://www.googleapis.com/auth/calendar']
 
@@ -382,22 +312,22 @@ def makecalevents():
     # Load credentials from the session.
     credentials = google.oauth2.credentials.Credentials(
       **flask.session['credentials'])
-    print('credentials loaded from session')
+    # print('credentials loaded from session')
 
     # try:
     service = googleapiclient.discovery.build('calendar', 'v3', credentials=credentials)
-    print('service built')
+    # print('service built')
 
     # from db get items for the same user with the same set pickup/dropoff datetime
     # join orders and logistics and reservations, get item names, links, prices
     # or get items in same event from rows, event_li, logi_li from gfg
 
     ltype = request.args.get('ltype')
-    print('ltype:',ltype)
+    # print('ltype:',ltype)
     renter = request.args.get('renter')
-    print('renter:',renter)
+    # print('renter:',renter)
     rid = request.args.get('rid')
-    print('renter id:',rid)
+    # print('renter id:',rid)
     date = request.args.get('date')
     time = request.args.get('time')
     ### check in db if there are other items being pickedup/dropped off for the same user at the same time
@@ -405,15 +335,44 @@ def makecalevents():
     ilink = request.args.get('item_link')
     tid = request.args.get('tid')
     tlink = 'https://admin.hubbub.shop/task/'+ltype+'/id='+tid
-    address = request.args.get("address")
+    # address = request.args.get("address")
+    ## this is the address in user account, need to get address from logistics form
+    # join tid with order_id in order_pickups, then join the dt_sched in order_pickups with dt_sched in logistics to get the address
+    conn = get_db_connection()
+    cur = conn.cursor()
+    if ltype == 'dropoff':
+        address_from_logistics_query = f"""
+            select address_num || ' ' || address_street || ', New York, NY ' || address_zip
+            from
+            (select order_id, dt_sched
+            from order_dropoffs
+            where order_id={tid}) as subquery
+            inner join logistics
+            on logistics.dt_sched=subquery.dt_sched
+        """
+        cur.execute(address_from_logistics_query)
+        address=cur.fetchone()[0]
+    elif ltype == "pickup":
+        address_from_logistics_query = f"""
+            select address_num || ' ' || address_street || ', New York, NY ' || address_zip
+            from
+            (select order_id, dt_sched
+            from order_pickups
+            where order_id={tid}) as subquery
+            inner join logistics
+            on logistics.dt_sched=subquery.dt_sched
+        """
+        cur.execute(address_from_logistics_query)
+        address=cur.fetchone()[0]
+
     phone = request.args.get("phone")
     payment = request.args.get("payment")
     notes = request.args.get("notes")
     email = request.args.get("email")
 
 
-    conn = get_db_connection()
-    cur = conn.cursor()
+    # conn = get_db_connection()
+    # cur = conn.cursor()
 
     if ltype=='dropoff':
         items_in_dropoff_query = """
@@ -428,7 +387,7 @@ def makecalevents():
         """%(rid,date,time)
         cur.execute(items_in_dropoff_query)
         rows = cur.fetchall()
-        print('items in dropoff rows:',rows[-10:])
+        # print('items in dropoff rows:',rows[-10:])
 
     elif ltype=='pickup':
         ### need to handle extensions!! order_pickups show post extension dates, but reservations.date_ended might not and the date associated with pickup time is the unextended date
@@ -446,15 +405,15 @@ def makecalevents():
         """%(rid,p_date,time)
         cur.execute(items_in_pickup_query)
         rows = cur.fetchall()
-        print('items in pickup rows:',rows[-10:])
+        # print('items in pickup rows:',rows[-10:])
 
     cur.close()
     conn.close()
 
     ## user notes
     ## user email (to put in body or as attendee)
-    print('date:',date)
-    print('time:',time)
+    # print('date:',date)
+    # print('time:',time)
     # print('iname',iname)
     # print('ilink:',ilink)
     # put all items in same pickup/dropoff in a list
@@ -468,35 +427,35 @@ def makecalevents():
     deposit_li=[i[3] for i in rows] # extension deposits not included
     tax_li=[i[4] for i in rows] # extension taxes not included
     total = sum(charge_li)+sum(deposit_li)+sum(tax_li)
-    print('iid_li',iid_li)
-    print('iname_li',iname_li)
-    print('ilink_li',ilink_li)
-    print('charge_li',charge_li)
-    print('deposit_li',deposit_li)
-    print('tax_li',tax_li)
-    print('total',total)
-    print('tid:',tid)
-    print('address:',address)
-    print('phone:',phone)
-    print('payment:',payment)
+    # print('iid_li',iid_li)
+    # print('iname_li',iname_li)
+    # print('ilink_li',ilink_li)
+    # print('charge_li',charge_li)
+    # print('deposit_li',deposit_li)
+    # print('tax_li',tax_li)
+    # print('total',total)
+    # print('tid:',tid)
+    # print('address:',address)
+    # print('phone:',phone)
+    # print('payment:',payment)
     if ltype=='dropoff':
         start_time_dt=datetime.datetime.strptime(date+' '+time,'%Y-%m-%d %H:%M:%S')
         start_time_str=date+'T'+time
     elif ltype=='pickup':
         start_time_dt=datetime.datetime.strptime(p_date+' '+time,'%Y-%m-%d %H:%M:%S')
         start_time_str=p_date+'T'+time
-    print('start_time_dt',start_time_dt)
-    print('start_time_str',start_time_str)
+    # print('start_time_dt',start_time_dt)
+    # print('start_time_str',start_time_str)
     end_time_dt=start_time_dt + datetime.timedelta(hours=1)
     end_time_str=end_time_dt.strftime('%Y-%m-%d %H:%M:%S')
     end_time_str=end_time_str.replace(' ','T')
     end_time_dt_user=start_time_dt + datetime.timedelta(minutes=15)
     end_time_str_user=end_time_dt_user.strftime('%Y-%m-%d %H:%M:%S')
     end_time_str_user=end_time_str_user.replace(' ','T')
-    print('end_time_dt',end_time_dt)
-    print('end_time_str',end_time_str)
-    print('email',email)
-    print('notes',notes)
+    # print('end_time_dt',end_time_dt)
+    # print('end_time_str',end_time_str)
+    # print('email',email)
+    # print('notes',notes)
 
     items_html_ops="<ul>"
     for i in range(len(iname_li)):
@@ -524,7 +483,7 @@ def makecalevents():
                 ],
               },
             }
-        print('df_event_ops',df_event_ops)
+        # print('df_event_ops',df_event_ops)
 
 
         summary = renter.split(" ")[0].capitalize()
@@ -568,7 +527,7 @@ def makecalevents():
                 ],
               },
         }
-        print('pu_event_ops',pu_event_ops)
+        # print('pu_event_ops',pu_event_ops)
 
 
         summary = renter.split(" ")[0].capitalize()
@@ -603,12 +562,12 @@ def makecalevents():
 
 @app.route('/clear')
 def clear_credentials():
-    print('clear:')
-    print('flask.session',flask.session)
+    # print('clear:')
+    # print('flask.session',flask.session)
     if 'credentials' in flask.session:
         del flask.session['credentials']
         del flask.session['state']
-        print('flask.session',flask.session)
+        # print('flask.session',flask.session)
     return ('Credentials have been cleared.<br><br> <a href="authorize">login</a>') # +
         # print_index_table())
 
@@ -620,20 +579,20 @@ def calendar():
     # Load credentials from the session.
     credentials = google.oauth2.credentials.Credentials(
       **flask.session['credentials'])
-    print('credentials loaded from session')
+    # print('credentials loaded from session')
 
     try:
         service = googleapiclient.discovery.build('calendar', 'v3', credentials=credentials)
-        print('service built')
+        # print('service built')
         now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
         events_result = service.events().list(calendarId='c_oclhvroroorb3fva3a85tqd2rc@group.calendar.google.com', timeMin=now,
                                               maxResults=10, singleEvents=True,
                                               orderBy='startTime').execute()
-        print('events_result',events_result)
+        # print('events_result',events_result)
         # return flask.redirect('mainsiteops')
         # events = events_result.get('items', [])
     except:
-        print("exception when accessing events in mainsiteops")
+        # print("exception when accessing events in mainsiteops")
         return """
         please login with valid email<br>
         <a href="clear">clear credentials and try again</a>
@@ -668,9 +627,9 @@ def calendar():
     """)
     dropoff_rows=cur.fetchall()
     dropoff_rows = [list(i) for i in dropoff_rows]
-    print("dropoff_rows")
-    print(dropoff_rows)
-    print("\n\n\n")
+    # print("dropoff_rows")
+    # print(dropoff_rows)
+    # print("\n\n\n")
 
 
     cur.execute("""
@@ -688,9 +647,9 @@ def calendar():
     """)
     pickup_rows=cur.fetchall()
     pickup_rows = [list(i) for i in pickup_rows]
-    print("pickup_rows")
-    print(pickup_rows)
-    print("\n\n\n")
+    # print("pickup_rows")
+    # print(pickup_rows)
+    # print("\n\n\n")
     # check for extensions
 
     cur.execute("select extensions.order_id, cast(extensions.res_date_start as varchar), cast(extensions.res_date_end as varchar) from extensions")
@@ -707,8 +666,8 @@ def calendar():
             i[1]=e[-1]
         # else:
         #     ext_li.append(i[3])
-    print("pickup rows after extension check:")
-    print(pickup_rows)
+    # print("pickup rows after extension check:")
+    # print(pickup_rows)
 
     ### rentals that end before 8/1 but have extensions that end after 8/1 ###
     # new query, change where to res_date_end<'2022-08-01' and extensions.res_date_end>'2022-08-01'
@@ -733,15 +692,15 @@ def calendar():
     """)
     pickup_rows_ext=cur.fetchall()
     pickup_rows_ext = [list(i) for i in pickup_rows_ext]
-    print("pickup_rows_ext")
-    print(pickup_rows_ext)
-    print("\n\n\n")
+    # print("pickup_rows_ext")
+    # print(pickup_rows_ext)
+    # print("\n\n\n")
 
     pickup_rows.extend(pickup_rows_ext)
 
-    print("pickup rows after extension check and adding pickup_rows_ext:")
-    print(pickup_rows)
-    print("\n\n\n")
+    # print("pickup rows after extension check and adding pickup_rows_ext:")
+    # print(pickup_rows)
+    # print("\n\n\n")
 
     # make table starting august
     # for each month, first row is month name, next row is days (sun-sat), then it's dates and logistics data alternating
@@ -770,9 +729,9 @@ def calendar():
     all_events=dropoff_rows
     all_events.extend(pickup_rows)
     all_events=sorted(all_events, key=lambda x: (x[1],x[3],x[7],x[6])) # sort by date, email, time chosen, timeslots, empty times are first, then ascending
-    print("\n\n\n")
-    print("all_events")
-    print(all_events)
+    # print("\n\n\n")
+    # print("all_events")
+    # print(all_events)
 
     # make pandas df, order by date, combine orders for the same user of same type on same day (at same time?)
     # or do that without pandas? in a for loop, then sort list https://stackoverflow.com/questions/36955553/sorting-list-of-lists-by-the-first-element-of-each-sub-list
@@ -808,9 +767,9 @@ def calendar():
         # prev_email=all_events[i][3]
         # prev_type=all_events[i][-1]
         # i+=1
-    print("\n\n\n")
-    print("all_events_after mod:")
-    print(all_events)
+    # print("\n\n\n")
+    # print("all_events_after mod:")
+    # print(all_events)
 
     # iterate through all upcoming dates, for each date output the events with that date
     upcoming_dates=sorted(list(set([i[1] for i in all_events])))
@@ -830,7 +789,7 @@ def calendar():
     # for last entry in date_rows, count how many there are, append empties as needed
     if len(date_rows[-1])<7:
         date_rows[-1].extend([' ']*(7-len(date_rows[-1])))
-    print(date_rows)
+    # print(date_rows)
 
     # make dictionary of date:events ?
     # iterate through date_rows, add corresponding events to each day?
@@ -842,9 +801,9 @@ def calendar():
             date_events_dict[event_date].append(e)
         except:
             date_events_dict[event_date]=e
-    print("\n\n\n")
-    print('date_events_dict')
-    print(date_events_dict)
+    # print("\n\n\n")
+    # print('date_events_dict')
+    # print(date_events_dict)
 
     html+="""
         <tr>
@@ -860,14 +819,14 @@ def calendar():
     """
     # <table>
     ######## new  ########
-    print("\n\n\n")
+    # print("\n\n\n")
     # remove each event entry after its added to html
     # while date_events_dict: # while there are entries in date_events_dict
     # while curr_mo_index < len(months) :
     while date_events_dict:
         event_rows=[]
         curr_month = months[curr_mo_index]
-        print('curr_month',curr_month)
+        # print('curr_month',curr_month)
         curr_mo_date_events_dict=dict(filter(lambda i:i[0][5:7]==curr_month and i[0][:4]==curr_year,date_events_dict.items()))
 
         #### generate date_rows ####
@@ -901,7 +860,7 @@ def calendar():
             """
             # see previous date_rows to see where 01 should start
             max_day=month_dict[curr_month][1]
-            print('max day',max_day)
+            # print('max day',max_day)
             start_position=len([i for i in date_rows[-1] if i!=' '])
             # generate first line
             if start_position==7:
@@ -910,17 +869,17 @@ def calendar():
             else:
                 date_rows=[[' ']*start_position]
             date_rows[0].extend([*range(1,7-start_position+1)])
-            print('first row of date_rows',date_rows)
+            # print('first row of date_rows',date_rows)
             # generate the rest
             i=int(date_rows[0][-1])+1 # value to start with for next row
-            print('i,value to start with for next row',i)
+            # print('i,value to start with for next row',i)
             while i<=max_day:
                 date_rows.append([*range(i,min(max_day+1,i+7))])
                 i+=7
             # for last entry in date_rows, count how many there are, append empties as needed
             if len(date_rows[-1])<7:
                 date_rows[-1].extend([' ']*(7-len(date_rows[-1])))
-            print(date_rows)
+            # print(date_rows)
 
         for d in date_rows:
             html+="<tr>"
@@ -950,10 +909,10 @@ def calendar():
                     # print('event_data in try:',event_data)
 
                     html+=event_data
-                    print('date_events_dict date entry to delete:',date_events_dict[curr_date])
+                    # print('date_events_dict date entry to delete:',date_events_dict[curr_date])
                     del date_events_dict[curr_date]
-                    print('date_events_dict after deletion:')
-                    print(date_events_dict)
+                    # print('date_events_dict after deletion:')
+                    # print(date_events_dict)
                     # html+="<td>"+str(curr_mo_date_events_dict[curr_date])+"</td>"
                     # curr_event_row.append(curr_mo_date_events_dict[curr_date])
                 except Exception as e:
@@ -965,8 +924,8 @@ def calendar():
                 # del date_events_dict[date]
             html+="</tr>"
             event_rows.append(curr_event_row)
-            print('event_rows',event_rows)
-            print("\n")
+            # print('event_rows',event_rows)
+            # print("\n")
 
 
         if curr_mo_index==len(months)-1: # at last month, or months[11]='12'
