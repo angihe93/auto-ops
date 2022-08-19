@@ -887,7 +887,7 @@ def calendar():
                 html+="<th>"+str(i)+"</th>"
             html+="</tr>"
             curr_event_row=[]
-            html+="<tr>"
+            html+="<tr VALIGN=TOP>" # top align text in each cell
             for date in d:
                 curr_date=curr_year+'-'+curr_month+'-'+str(date) if len(str(date))==2 else curr_year+'-'+curr_month+'-0'+str(date)
                 # print('curr_date',curr_date)
