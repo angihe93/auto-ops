@@ -1075,7 +1075,7 @@ def sendreminderemail():
 
             message['Subject'] = '[Hubbub] End of Rental Logistics'
 
-        message['To'] = 'ah3354@columbia.edu'
+        message['To'] = recipient
         message['From'] = 'hello@hubbub.shop'
         # message['Subject'] = 'Automated draft'
 
